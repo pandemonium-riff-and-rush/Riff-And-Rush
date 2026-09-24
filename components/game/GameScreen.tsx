@@ -226,20 +226,22 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       eventsSeen.current = 0;
       interruptions.current = 0;
     }
+    // 3 · 2 · 1: mientras cuenta, el video ya queda ubicado (y cargando) donde se retoma
+    clockRef.current?.prepare?.(from);
     setPhase('resuming');
     setCd(3);
     let n = 3;
     const tick = () => {
       n--;
-      if (n > 0) { setCd(n); resumeTimer.current = setTimeout(tick, 500); }
+      if (n > 0) { setCd(n); resumeTimer.current = setTimeout(tick, 1000); }
       else {
         clockRef.current?.resume(from);
         // El tiempo vuelve atrás: queda anotado para que el servidor acepte el registro
         if (!restart) scorerRef.current.markResume(now());
-        setPhase(from < 0 ? 'countdown' : isYouTube ? 'waiting' : 'playing');
+        setPhase(from < 0 ? 'countdown' : 'playing');
       }
     };
-    resumeTimer.current = setTimeout(tick, 500);
+    resumeTimer.current = setTimeout(tick, 1000);
   }, [chart.offsetMs, isYouTube, lead, makeScorer, now, practice, setPhase]);
 
   const hitLane = useCallback((lane: number, down: boolean) => {
@@ -493,7 +495,15 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
              * (parámetros oficiales) más la detección onTamper del reloj, que pausa el juego
              * y devuelve el video a su segundo al continuar.
              */
-            <div style={{ width: 400, height: 225, background: '#000' }}><div id="yt-player" /></div>
+            <div style={{ position: 'relative', width: 400, height: 225, background: '#000' }}>
+              <div id="yt-player" />
+              {/* El video no se toca: se pausa solo con nuestro botón o Esc. Se deja libre únicamente
+                  mientras YouTube muestra un anuncio (fase "esperando"), para poder saltarlo. */}
+              {phase !== 'waiting' && (
+                <div aria-hidden onMouseDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()}
+                  style={{ position: 'absolute', inset: 0, cursor: 'default', background: 'transparent' }} />
+              )}
+            </div>
           ) : (
             <div style={{ width: 400, height: 225, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0B0716', textAlign: 'center', padding: 24 }}>
               <div className="disp" style={{ fontSize: 30, lineHeight: '34px', color: 'var(--accent)', whiteSpace: 'nowrap' }}>Modo metrónomo</div>
