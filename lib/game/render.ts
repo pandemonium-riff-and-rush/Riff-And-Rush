@@ -1,0 +1,441 @@
+import type { LiveNote } from './engine';
+import { LANE_COLORS } from '../chart/types';
+import type { Fx } from './fx';
+import type { TempoPoint } from '../chart/types';
+import { bpmAt, gridBetween } from '../chart/tempo';
+
+/** Geometría de la autopista (en px CSS del canvas). */
+export const HW = 760;
+export const HH = 560;
+const TOPW = 330;
+const TOP = 10;
+export const HIT = 488;
+
+/** Posición x del receptor de un carril (para ubicar efectos). */
+export const laneX = (lane: number, n: number) => xOf(HIT, lane, n);
+
+const W = (y: number) => TOPW + (HW - TOPW) * (y / HH);
+const xOf = (y: number, lane: number, n: number) => { const w = W(y); return (HW - w) / 2 + (w * (lane + 0.5)) / n; };
+/*
+ * Perspectiva real: el ancho de la autopista es lineal en y y se anula en el horizonte (HZ).
+ * Para un plano visto por una cámara, la distancia en pantalla al horizonte es proporcional a 1/profundidad,
+ * así que y(p) = HZ + (HIT − HZ) / (1 + K·p). Con esto el espaciado de las notas calza con su tamaño
+ * (antes se usaba una curva inventada y las notas "aceleraban" raro).
+ */
+const HZ = -(TOPW * HH) / (HW - TOPW);
+const K = (HIT - HZ) / (TOP - HZ) - 1;
+/** p = 0 en la línea de golpe, 1 arriba del todo. */
+const yOf = (p: number) => HZ + (HIT - HZ) / (1 + K * Math.max(p, -0.9 / K));
+
+function shade(hex: string, f: number) {
+  const v = parseInt(hex.slice(1), 16);
+  const c = [v >> 16, (v >> 8) & 255, v & 255].map((x) => Math.round(f < 1 ? x * f : x + (255 - x) * (f - 1)));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function rgba(hex: string, a: number) {
+  const v = parseInt(hex.slice(1), 16);
+  return `rgba(${v >> 16},${(v >> 8) & 255},${v & 255},${a})`;
+}
+
+export interface RenderState {
+  t: number;
+  notes: LiveNote[];
+  lanes: number;
+  /** Segundos visibles en la autopista. */
+  window: number;
+  bpm: number;
+  pressed: boolean[];
+  /** Último acierto por carril (tiempo de chart) para el destello. */
+  flashAt: number[];
+  boosting: boolean;
+  showNotes: boolean;
+  theme: string;
+  /** Multiplicador actual (1–4, ×2 con energía): cambia el color de los bordes. */
+  mult?: number;
+  fx?: Fx;
+  /** Mapa de tempo normalizado (si la canción cambia de BPM). */
+  tempo?: TempoPoint[];
+}
+
+const MULT_EDGE: Record<number, string> = { 1: '', 2: '#3FA9FF', 3: '#3DDC84', 4: '#FF4D6D' };
+
+const THEMES: Record<string, { top: string; bottom: string; edge: string }> = {
+  estadio: { top: '#050414', bottom: '#1C1238', edge: '#A855F7' },
+  madera: { top: '#0C0804', bottom: '#3A2418', edge: '#FF8A3D' },
+  hielo: { top: '#040A14', bottom: '#12304A', edge: '#3FA9FF' },
+  contraste: { top: '#000000', bottom: '#111111', edge: '#F2F0FF' }
+};
+
+export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
+  const n = s.lanes;
+  const th = THEMES[s.theme] ?? THEMES.estadio;
+  const baseMult = s.boosting ? Math.max(1, Math.round((s.mult ?? 2) / 2)) : (s.mult ?? 1);
+  const edge = s.boosting ? '#F5B700' : MULT_EDGE[Math.min(4, baseMult)] || th.edge;
+  const map = s.tempo ?? [{ t: 0, bpm: s.bpm }];
+  const beat = 60 / bpmAt(map, Math.max(0, s.t));
+  const grid = gridBetween(map, s.t - 0.2, s.t + s.window, 0.5);
+  const cur = grid.filter((g) => g.index % 1 === 0 && g.t <= s.t).pop();
+  const phase = s.t >= 0 ? (cur ? (s.t - cur.t) / beat : 1) : 1;
+  const pulse = Math.max(0, 1 - phase * 3.5); // destello al inicio de cada tiempo
+  const fx = s.fx;
+  fx?.step();
+
+  ctx.clearRect(0, 0, HW, HH);
+  ctx.save();
+  if (fx && fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake * 8, (Math.random() - 0.5) * fx.shake * 5);
+
+  // ---------- Fondo de la autopista ----------
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo((HW - TOPW) / 2, 0);
+  ctx.lineTo((HW + TOPW) / 2, 0);
+  ctx.lineTo(HW, HH);
+  ctx.lineTo(0, HH);
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(0, 0, 0, HH);
+  bg.addColorStop(0, th.top);
+  bg.addColorStop(1, s.boosting ? '#3A2A08' : th.bottom);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.clip();
+
+  // Franjas por carril (más claras si el carril está apretado)
+  for (let i = 0; i < n; i++) {
+    const xt0 = (HW - TOPW) / 2 + (TOPW * i) / n, xt1 = (HW - TOPW) / 2 + (TOPW * (i + 1)) / n;
+    const xb0 = (HW * i) / n, xb1 = (HW * (i + 1)) / n;
+    const col = LANE_COLORS[i];
+    ctx.beginPath();
+    ctx.moveTo(xt0, 0); ctx.lineTo(xt1, 0); ctx.lineTo(xb1, HH); ctx.lineTo(xb0, HH); ctx.closePath();
+    if (s.pressed[i]) {
+      const g = ctx.createLinearGradient(0, HIT, 0, HIT - 360);
+      g.addColorStop(0, rgba(col, 0.32));
+      g.addColorStop(1, rgba(col, 0));
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.08)';
+    ctx.fill();
+  }
+
+  // Trastes (líneas de compás) que avanzan con la música
+  for (const g of grid) {
+    if (g.index % 1 !== 0 || g.t < s.t) continue;
+    const y = yOf((g.t - s.t) / s.window);
+    const w = W(y);
+    const strong = g.strong;
+    ctx.fillStyle = strong ? 'rgba(210,200,255,0.42)' : 'rgba(200,190,255,0.13)';
+    ctx.fillRect((HW - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
+  }
+
+  // Cuerdas por carril
+  for (let i = 0; i < n; i++) {
+    ctx.strokeStyle = rgba(LANE_COLORS[i], s.pressed[i] ? 0.95 : 0.4);
+    ctx.lineWidth = s.pressed[i] ? 3 : 1.5;
+    ctx.beginPath();
+    ctx.moveTo((HW - TOPW) / 2 + (TOPW * (i + 0.5)) / n, 0);
+    ctx.lineTo((HW * (i + 0.5)) / n, HH);
+    ctx.stroke();
+  }
+
+  // Neblina arriba: da profundidad y esconde la aparición de las notas
+  const fog = ctx.createLinearGradient(0, 0, 0, HH * 0.32);
+  fog.addColorStop(0, 'rgba(5,4,20,0.95)');
+  fog.addColorStop(1, 'rgba(5,4,20,0)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, 0, HW, HH * 0.32);
+  ctx.restore();
+
+  // ---------- Bordes con neón (laten con el ritmo) ----------
+  ctx.save();
+  ctx.shadowColor = edge;
+  ctx.shadowBlur = 14 + pulse * 22 + (baseMult >= 4 ? 10 : 0);
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 4 + pulse * 2;
+  ctx.beginPath();
+  ctx.moveTo((HW - TOPW) / 2, 0); ctx.lineTo(0, HH);
+  ctx.moveTo((HW + TOPW) / 2, 0); ctx.lineTo(HW, HH);
+  ctx.stroke();
+  ctx.restore();
+
+  // Luces que corren por los bordes (cada medio tiempo)
+  ctx.save();
+  ctx.fillStyle = edge;
+  ctx.shadowColor = edge;
+  ctx.shadowBlur = 10;
+  for (const g of grid) {
+    if (g.t < s.t) continue;
+    const k = Math.round(g.index * 2);
+    const y = yOf((g.t - s.t) / s.window);
+    if (y < HH * 0.2) continue;
+    const w = W(y);
+    const r = 1.5 + (y / HH) * 3.5;
+    ctx.globalAlpha = Math.min(1, (y / HH) * 1.4) * (k % 2 ? 0.55 : 1);
+    ctx.beginPath(); ctx.arc((HW - w) / 2 + 3, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc((HW + w) / 2 - 3, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---------- Línea de golpe ----------
+  {
+    const w = W(HIT);
+    const x0 = (HW - w) / 2;
+    ctx.save();
+    const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+    g.addColorStop(0, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
+    g.addColorStop(0.5, `rgba(255,255,255,${0.35 + pulse * 0.4})`);
+    g.addColorStop(1, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
+    ctx.fillStyle = g;
+    ctx.shadowColor = edge;
+    ctx.shadowBlur = 12 + pulse * 14;
+    ctx.fillRect(x0, HIT - 2, w, 4);
+    ctx.restore();
+  }
+
+  // ---------- Notas largas y notas ----------
+  if (s.showNotes) {
+    const visible: LiveNote[] = [];
+    for (const nt of s.notes) {
+      if (nt.t - s.t > s.window) break;
+      const dt = nt.t - s.t;
+      if (nt.len > 0 && nt.state !== 'miss' && dt + nt.len >= 0) {
+        const d1 = Math.max(dt, 0);
+        const d2 = Math.min(dt + nt.len, s.window);
+        if (d1 <= s.window && (nt.state === 'pending' || nt.holding)) drawSustain(ctx, nt, s, n, d1, d2);
+      }
+      if (nt.state === 'hit') continue;
+      if (dt < -0.35) continue;
+      visible.push(nt);
+    }
+    drawLinks(ctx, visible, s, n);
+    for (let i = visible.length - 1; i >= 0; i--) drawGem(ctx, visible[i], s, n);
+  }
+
+  // ---------- Receptores ----------
+  const lwHit = W(HIT) / n;
+  const size = Math.min(104, lwHit * 0.8);
+  const sh = size * 0.5;
+  const nowSec = performance.now() / 1000;
+  for (let i = 0; i < n; i++) {
+    const x = xOf(HIT, i, n);
+    const col = LANE_COLORS[i];
+    const on = s.pressed[i];
+    const flash = s.t - s.flashAt[i];
+    const missK = fx ? Math.max(0, 1 - (nowSec - fx.missAt[i]) / 0.25) : 0;
+    const y = HIT + (on ? 3 : 0);
+    ctx.save();
+    ctx.fillStyle = shade(col, 0.3);
+    ctx.beginPath(); ctx.ellipse(x, HIT + sh * 0.22, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(x, y - sh * 0.15, 2, x, y, size / 2);
+    if (on) { g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, shade(col, 1.4)); g.addColorStop(1, col); }
+    else { g.addColorStop(0, '#2A2448'); g.addColorStop(1, '#0A0916'); }
+    ctx.fillStyle = g;
+    ctx.shadowColor = missK > 0 ? '#FF2D4D' : col;
+    ctx.shadowBlur = on ? 34 : 10 + missK * 20;
+    ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = size * 0.1;
+    ctx.strokeStyle = missK > 0 ? `rgb(255,${Math.round(77 + (1 - missK) * 100)},${Math.round(109 * (1 - missK))})` : col;
+    ctx.beginPath(); ctx.ellipse(x, y, size / 2 - size * 0.05, sh / 2 - size * 0.05, 0, 0, Math.PI * 2); ctx.stroke();
+    // brillo superior
+    ctx.globalAlpha = on ? 0.9 : 0.35;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.ellipse(x - size * 0.12, y - sh * 0.22, size * 0.16, sh * 0.1, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    if (flash >= 0 && flash < 0.18) {
+      const k = 1 - flash / 0.18;
+      const fg = ctx.createRadialGradient(x, HIT - size * 0.2, 2, x, HIT - size * 0.45, size * 0.7);
+      fg.addColorStop(0, `rgba(255,255,255,${0.95 * k})`);
+      fg.addColorStop(0.3, `rgba(255,210,63,${0.8 * k})`);
+      fg.addColorStop(0.65, rgba(col, 0.5 * k));
+      fg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.ellipse(x, HIT - size * 0.4, size * 0.42, size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  fx?.draw(ctx);
+  ctx.restore();
+}
+
+/**
+ * Líneas que unen las frases encadenadas: ligados, pull-offs y barridos.
+ * Es la señal visual de "esto va sin soltar", antes de que la nota llegue.
+ */
+function drawLinks(ctx: CanvasRenderingContext2D, visible: LiveNote[], s: RenderState, n: number) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (const nt of visible) {
+    const tech = nt.tech;
+    if (tech !== 'hopo' && tech !== 'pull' && tech !== 'sweep') continue;
+    const prev = s.notes[nt.idx - 1];
+    if (!prev || nt.t - prev.t > 1.2) continue;
+    // El barrido solo se une con el barrido de al lado: dos carreras separadas
+    // no se dibujan enganchadas.
+    if (tech === 'sweep' && (prev.tech !== 'sweep' || nt.t - prev.t > 0.45)) continue;
+    const d1 = (nt.t - s.t) / s.window;
+    const d0 = (prev.t + prev.len - s.t) / s.window;
+    if (d1 > 1.05 || d0 < -0.2) continue;
+    const y1 = yOf(Math.min(d1, 1.05));
+    const y0 = yOf(Math.max(d0, -0.05));
+    const x1 = xOf(y1, nt.lane, n);
+    const x0 = xOf(y0, prev.lane, n);
+    const col = tech === 'sweep' ? '#F5B700' : LANE_COLORS[nt.lane];
+    ctx.strokeStyle = rgba(col, tech === 'sweep' ? 0.75 : 0.5);
+    ctx.lineWidth = tech === 'sweep' ? Math.max(2, (W(y1) / n) * 0.16) : Math.max(1.5, (W(y1) / n) * 0.07);
+    ctx.shadowColor = col;
+    ctx.shadowBlur = tech === 'sweep' ? 12 : 0;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSustain(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n: number, d1: number, d2: number) {
+  const col = s.boosting ? '#FFE27A' : LANE_COLORS[nt.lane];
+  const steps = 18;
+  const pts: [number, number, number][] = [];
+  for (let k = 0; k <= steps; k++) {
+    const d = d1 + ((d2 - d1) * k) / steps;
+    const y = yOf(d / s.window);
+    const lw = W(y) / n;
+    const w = lw * (nt.holding ? 0.17 : 0.13);
+    const wob = nt.holding ? Math.sin(y * 0.09 - s.t * 28) * lw * 0.035 : 0;
+    pts.push([xOf(y, nt.lane, n) + wob, y, w]);
+  }
+  ctx.save();
+  ctx.shadowColor = col;
+  ctx.shadowBlur = nt.holding ? 22 : 8;
+  ctx.fillStyle = rgba(col, nt.holding ? 1 : 0.75);
+  ctx.beginPath();
+  pts.forEach(([x, y, w], k) => (k ? ctx.lineTo(x - w / 2, y) : ctx.moveTo(x - w / 2, y)));
+  for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k][0] + pts[k][2] / 2, pts[k][1]);
+  ctx.closePath();
+  ctx.fill();
+  if (nt.holding) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    pts.forEach(([x, y, w], k) => (k ? ctx.lineTo(x - w / 6, y) : ctx.moveTo(x - w / 6, y)));
+    for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k][0] + pts[k][2] / 6, pts[k][1]);
+    ctx.closePath();
+    ctx.fill();
+    s.fx?.sustain(xOf(HIT, nt.lane, n), HIT - 6, LANE_COLORS[nt.lane]);
+  }
+  ctx.restore();
+}
+
+function drawGem(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n: number) {
+  const dt = nt.t - s.t;
+  const p = dt / s.window;
+  const y = yOf(p);
+  const x = xOf(y, nt.lane, n);
+  const lw = W(y) / n;
+  const tech = nt.tech;
+  // El palm mute se achata (chug); el armónico y el ligado se afinan
+  const w = lw * (tech === 'mute' ? 0.5 : tech === 'harm' ? 0.56 : tech === 'hopo' || tech === 'pull' ? 0.52 : 0.64);
+  const h = w * (tech === 'mute' ? 0.3 : 0.4);
+  const base = s.boosting ? '#FFE27A' : LANE_COLORS[nt.lane];
+  const col = tech === 'harm' ? '#FFD23F' : tech === 'mute' ? shade(base, 0.62) : base;
+  const alpha = nt.state === 'miss' ? 0.3 : Math.min(1, 0.2 + (1 - p) * 1.3);
+
+  if (tech === 'harm') {
+    // Acorde: la estrella ocupa TODOS los carriles que hay que apretar juntos
+    const lanes = nt.chord?.length ? [nt.lane, ...nt.chord] : [nt.lane];
+    if (lanes.length > 1) {
+      const xs = lanes.map((l) => xOf(y, l, n));
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.strokeStyle = '#FFD23F';
+      ctx.lineWidth = Math.max(2, h * 0.5);
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#FFD23F';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.moveTo(Math.min(...xs), y);
+      ctx.lineTo(Math.max(...xs), y);
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const l of lanes) drawHarmonic(ctx, xOf(y, l, n), y, w, alpha);
+    return;
+  }
+  if (tech === 'pull') {
+    drawPullOff(ctx, x, y, w, h, base, alpha);
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // volumen inferior
+  ctx.fillStyle = shade(col, 0.4);
+  ctx.beginPath(); ctx.ellipse(x, y + h * 0.3, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+  // cuerpo con brillo
+  const g = ctx.createRadialGradient(x, y - h * 0.2, 1, x, y, w / 2);
+  g.addColorStop(0, shade(col, 1.55));
+  g.addColorStop(0.55, col);
+  g.addColorStop(1, shade(col, 0.5));
+  ctx.fillStyle = g;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = Math.max(1.5, h * 0.08);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.stroke();
+  if (nt.hopo || tech === 'hopo') {
+    // Ligado: anillo hueco, sin relleno de púa
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.ellipse(x, y, w * 0.2, h * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (tech === 'mute') {
+    // Chug: dos rayas apagadas en vez de brillo
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(x - w * 0.22, y - h * 0.06, w * 0.44, Math.max(1, h * 0.09));
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(x, y - h * 0.18, w * 0.26, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** Armónico: estrella dorada. Solo cuenta si le pegas Perfecto. */
+function drawHarmonic(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, alpha: number) {
+  const r = w * 0.55;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = '#FFD23F';
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = '#FFE27A';
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const rad = i % 2 ? r * 0.38 : r;
+    const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad * 0.62;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); ctx.ellipse(x, y, r * 0.2, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/** Pull-off: galón hacia abajo. Esta nota se toca SOLTANDO el traste. */
+function drawPullOff(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = col;
+  ctx.lineWidth = Math.max(2, h * 0.34);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const off of [-h * 0.42, h * 0.36]) {
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.42, y + off - h * 0.28);
+    ctx.lineTo(x, y + off + h * 0.34);
+    ctx.lineTo(x + w * 0.42, y + off - h * 0.28);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
