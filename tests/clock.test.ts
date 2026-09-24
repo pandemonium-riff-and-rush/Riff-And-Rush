@@ -35,7 +35,7 @@ function makeClock(adSec: number, lagSec: number, leadIn = 3) {
     offsetSec: 0, leadIn
   });
   const player = new FakePlayer(adSec, lagSec, (s) => (clock as unknown as { onState(s: number): void }).onState(s));
-  clock.player = player;
+  (clock as unknown as { player: unknown }).player = player;
   const statuses: string[] = [];
   clock.onStatus = (s) => statuses.push(s);
   return { clock, player, statuses, watch: () => (clock as unknown as { watch(): void }).watch() };
