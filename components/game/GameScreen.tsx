@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Chart, DifficultyId } from '@/lib/chart/types';
-import { difficultyInfo, formatTime, lastNoteEnd, LANE_COLORS, playEnd, preRollSec } from '@/lib/chart/types';
+import { difficultyInfo, formatTime, lastNoteEnd, LANE_COLORS, playEnd } from '@/lib/chart/types';
 import { GameClock, MetronomeClock, YouTubeClock, type ClockStatus, type TamperKind } from '@/lib/game/clock';
 import { Scorer } from '@/lib/game/engine';
 import { drawHighway, HH, HIT, HW, laneX } from '@/lib/game/render';
@@ -46,12 +46,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     return mods.mirror ? ns.map((n) => ({ ...n, lane: lanes - 1 - n.lane })) : ns;
   }, [dc.notes, endAt, lanes, mods.mirror]);
   const lastNote = useMemo(() => lastNoteEnd(playNotes), [playNotes]);
-  // Margen de inicio: el juego corre antes que la canción solo lo necesario para que la
-  // primera nota no aparezca encima. Si la canción ya tiene intro, el video parte al tiro.
-  const lead = useMemo(
-    () => preRollSec(Math.max(0, chart.leadInSec ?? 3), playNotes, isYouTube ? chart.offsetMs / 1000 : 0),
-    [chart.leadInSec, chart.offsetMs, isYouTube, playNotes]
-  );
+  // Margen de inicio: el juego (las notas bajando) corre estos segundos antes de que parta
+  // la canción, así la primera nota nunca aparece encima. El video espera quieto en 0.
+  const lead = Math.max(0, chart.leadInSec ?? 3);
   const scorerOpts = useMemo(() => ({ precision: mods.precision, dropless: mods.dropless, ghostPenalty: diff !== 'easy' && !practice && !auto }), [mods.precision, mods.dropless, diff, practice, auto]);
   const makeScorer = useCallback(() => {
     const sc = new Scorer(playNotes, endAt, scorerOpts);

@@ -148,6 +148,8 @@ export class YouTubeClock implements GameClock {
   private pendingStart = false;
   private el: HTMLDivElement | null = null;
   private prerollUntil = 0;
+  /** Lo silenciamos nosotros durante el margen de inicio (para devolverle el sonido después). */
+  private mutedByUs = false;
   private rate = 1;
   /** Mientras el juego mismo mueve el video, no se avisa de "alguien tocó el reproductor". */
   private guardUntil = 0;
@@ -197,6 +199,10 @@ export class YouTubeClock implements GameClock {
     if (state === YT.PlayerState.ENDED) this.set('ended');
     else if (state === YT.PlayerState.BUFFERING || state === YT.PlayerState.UNSTARTED) {
       if (this.wantPlaying) this.set('waiting');
+    } else if (state === YT.PlayerState.PLAYING && this.prerollUntil && !this.wantPlaying) {
+      // Durante el margen de inicio el video tiene que quedarse quieto en 0. YouTube a veces
+      // arranca solo al hacer seekTo sobre un video recién cargado: se vuelve a pausar.
+      this.player?.pauseVideo();
     } else if (state === YT.PlayerState.PAUSED && this.wantPlaying && performance.now() > this.guardUntil) {
       // El juego nunca pausa sin bajar wantPlaying: esto lo hizo el jugador en el reproductor
       this.onTamper?.('pause');
@@ -263,7 +269,12 @@ export class YouTubeClock implements GameClock {
     this.lastAdvance = 0;
     this.wantPlaying = true;
     this.guardUntil = performance.now() + 1200;
-    if (this.ready) { this.player?.setPlaybackRate?.(this.rate); this.player?.seekTo(v, true); this.player?.playVideo(); }
+    if (this.ready) {
+      this.player?.setPlaybackRate?.(this.rate);
+      if (this.mutedByUs) { this.player?.unMute?.(); this.mutedByUs = false; }
+      this.player?.seekTo(v, true);
+      this.player?.playVideo();
+    }
     this.set('waiting');
   }
 
@@ -274,13 +285,26 @@ export class YouTubeClock implements GameClock {
       this.lastYt = 0;
       this.wantPlaying = false;
       this.guardUntil = performance.now() + 1200;
-      if (this.ready) { this.player?.pauseVideo(); this.player?.seekTo(0, true); }
+      if (this.ready) this.holdAtStart();
       this.prerollUntil = performance.now() + (-v * 1000) / this.rate;
       this.set('playing');
       return;
     }
     this.prerollUntil = 0;
     this.playFrom(v);
+  }
+
+  /**
+   * Deja el video quieto y en silencio en el segundo 0 mientras corre el margen de inicio.
+   * Ojo: seekTo sobre un video recién cargado lo hace sonar; por eso se silencia antes y
+   * solo se busca el 0 si el video ya había avanzado (reiniciar la canción).
+   */
+  private holdAtStart() {
+    const p = this.player;
+    if (!p) return;
+    if (!this.mutedByUs && !p.isMuted?.()) { p.mute?.(); this.mutedByUs = true; }
+    p.pauseVideo();
+    if ((p.getCurrentTime?.() ?? 0) > 0.05) { p.seekTo(0, true); p.pauseVideo(); }
   }
 
   setRate(rate: number) {

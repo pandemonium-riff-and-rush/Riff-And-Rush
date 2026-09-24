@@ -732,7 +732,7 @@ function Editor() {
             </div>
             {hasTempoChanges && <span className="small" style={{ color: '#9CD0FF' }}>Esta canción tiene {tmap.length} cambios de tempo: la grilla los sigue sola.</span>}
             <div className="row">
-              <label className="label" style={{ width: 96 }} htmlFor="leadin" title="Segundos mínimos que se ven bajar notas antes de la primera. El juego corre antes que la canción solo si hace falta; si la canción ya tiene intro, el video parte de inmediato">Margen inicio</label>
+              <label className="label" style={{ width: 96 }} htmlFor="leadin" title="Segundos que el juego corre (las notas ya van bajando) antes de que parta la canción">Margen inicio</label>
               <input id="leadin" className="input mono grow" type="number" min={0} max={15} step={0.5} value={lead}
                 onChange={(e) => setChart((c) => ({ ...c, leadInSec: Math.min(15, Math.max(0, Number(e.target.value) || 0)) }))} />
               <span className="small muted">seg</span>
