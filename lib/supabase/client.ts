@@ -2,13 +2,11 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Proyecto Riff&Rush. La publishable key es pública por diseño (va en el navegador);
-// la seguridad la ponen las reglas RLS de la base. Se puede sobrescribir con .env.local.
-const DEFAULT_URL = 'https://kudejksuvlrfwaspnwkr.supabase.co';
-const DEFAULT_KEY = 'sb_publishable_9-dZRxLNJsTRJ1jNI0MVQw_-95mIQE3';
-
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_URL;
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_KEY;
+// Se configura con .env.local (ver .env.local.example). Sin esas variables el juego
+// funciona en modo invitado: todo queda en el navegador y no hay cuentas ni rankings reales.
+// La publishable key es pública por diseño; la seguridad la ponen las reglas RLS de la base.
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 /** true si el .env.local tiene la URL y la clave pública de Supabase. */
 export const supabaseConfigured = Boolean(URL && KEY);

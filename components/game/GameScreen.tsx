@@ -14,7 +14,7 @@ import { Cover } from '@/components/Cover';
 import { Logo } from '@/components/Nav';
 import { Backdrop, BH, BW, MicAnalyser } from '@/lib/game/backdrop';
 import { useMe } from '@/lib/auth/AuthProvider';
-import { fetchChartLeaderboard, type ChartRankRow } from '@/lib/data/cloud';
+import { fetchChartLeaderboard, startPlaySession, type ChartRankRow } from '@/lib/data/cloud';
 import { ExtraInputs } from '@/lib/game/input';
 import { MOD_INFO, modsLabel, type GameMods } from '@/lib/game/mods';
 import { tempoMap } from '@/lib/chart/tempo';
@@ -88,6 +88,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const autoUp = useRef<number[]>(new Array(6).fill(-1));
   const eventsSeen = useRef(0);
   const interruptions = useRef(0);
+  /** Sesión de partida del servidor (para subir el puntaje al ranking). */
+  const sessionRef = useRef<Promise<string | null> | null>(null);
+  const sessionIdRef = useRef<string | undefined>(undefined);
   const hasPlayed = useRef(false);
   const finishedRef = useRef(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,7 +129,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       medianOffsetMs: s.medianOffset().ms, offsetSamples: s.medianOffset().count, ghosts: s.ghosts, mods: modsLabel(mods),
       modIds: MOD_INFO.map((m) => m.id).filter((id) => mods[id]),
       inputLog: auto ? undefined : (s.inputLog.slice(-25000) as [number, number, number][]),
-      uploadId: auto ? undefined : Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+      uploadId: auto ? undefined : Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      sessionId: auto ? undefined : sessionIdRef.current
     });
     clockRef.current?.pause();
     router.push('/resultados');
@@ -189,8 +193,13 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       return;
     }
     c.start();
+    // Partida que cuenta: se pide la sesión al servidor ahora, mientras corre la cuenta regresiva
+    if (!auto && !sessionRef.current) {
+      sessionRef.current = startPlaySession(chart.id, diff).catch(() => null);
+      sessionRef.current.then((id) => { sessionIdRef.current = id ?? undefined; });
+    }
     setPhase(lead > 0 ? 'countdown' : isYouTube ? 'waiting' : 'playing');
-  }, [isYouTube, lead, practice, setPhase]);
+  }, [auto, chart.id, diff, isYouTube, lead, practice, setPhase]);
 
   const pause = useCallback(() => {
     const p = phaseRef.current;
@@ -217,11 +226,13 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       if (n > 0) { setCd(n); resumeTimer.current = setTimeout(tick, 500); }
       else {
         clockRef.current?.resume(from);
+        // El tiempo vuelve atrás: queda anotado para que el servidor acepte el registro
+        if (!restart) scorerRef.current.markResume(now());
         setPhase(from < 0 ? 'countdown' : isYouTube ? 'waiting' : 'playing');
       }
     };
     resumeTimer.current = setTimeout(tick, 500);
-  }, [chart.offsetMs, isYouTube, lead, makeScorer, practice, setPhase]);
+  }, [chart.offsetMs, isYouTube, lead, makeScorer, now, practice, setPhase]);
 
   const hitLane = useCallback((lane: number, down: boolean) => {
     const p = phaseRef.current;

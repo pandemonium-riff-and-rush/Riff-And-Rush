@@ -28,7 +28,7 @@ export default function Results() {
     sentRef.current = true;
     try { sessionStorage.setItem(key, JSON.stringify([...done, r.uploadId].slice(-50))); } catch { /* sin storage */ }
     setCloud({ state: 'sending' });
-    submitScoreCloud(r.chartId, r.diff, { score: r.score, accuracy: r.accuracy, stars: r.stars, maxCombo: r.maxCombo }, r.inputLog, r.modIds).then((res) => {
+    submitScoreCloud(r.chartId, r.diff, { score: r.score, accuracy: r.accuracy, stars: r.stars, maxCombo: r.maxCombo }, r.inputLog, r.modIds, r.sessionId).then((res) => {
       setCloud(res === null ? { state: 'error' } : { state: 'done', xp: res.xp, serverScore: res.score });
       if (res !== null) refreshProfile();
     });

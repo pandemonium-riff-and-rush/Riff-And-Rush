@@ -125,8 +125,10 @@ export interface GameResult {
   mods?: string;
   /** Ids de modificadores activos (para que el servidor rehaga la partida igual). */
   modIds?: string[];
-  /** Registro de teclas: [segundo, carril, 1 apreta / 0 suelta / 2 energía]. */
+  /** Registro de teclas: [segundo, carril, 1 apreta / 0 suelta / 2 energía / 3 pausa y retoma]. */
   inputLog?: [number, number, number][];
+  /** Sesión de partida que entregó el servidor al empezar (sin ella no se sube al ranking). */
+  sessionId?: string;
 }
 
 export function setLastResult(r: GameResult) { write(K.last, r, true); }

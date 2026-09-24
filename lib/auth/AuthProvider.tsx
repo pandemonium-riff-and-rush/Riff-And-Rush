@@ -44,8 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = useCallback(async (uid: string | undefined) => {
     const c = sb();
     if (!c || !uid) { setProfile(null); return; }
-    const { data } = await c.from('profiles').select('*').eq('id', uid).maybeSingle();
-    setProfile((data as Profile) ?? null);
+    // is_admin no es público (ver migración 0004): se pregunta aparte con la función is_admin()
+    const [{ data }, { data: admin }] = await Promise.all([
+      c.from('profiles').select('id, username, color, country, xp, level, plays, is_supporter, created_at').eq('id', uid).maybeSingle(),
+      c.rpc('is_admin')
+    ]);
+    setProfile(data ? { ...(data as Profile), is_admin: admin === true } : null);
   }, []);
 
   useEffect(() => {

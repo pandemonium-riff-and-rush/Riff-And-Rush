@@ -63,7 +63,10 @@ export class Scorer {
   events: JudgeEvent[] = [];
   /** Total de juicios emitidos (no se recorta como events). */
   eventCount = 0;
-  /** Log de inputs: [tiempo, carril, 1=presiona / 0=suelta] */
+  /**
+   * Log de inputs: [tiempo, carril, código]. Códigos: 1 = presiona, 0 = suelta,
+   * 2 = activa energía, 3 = pausa y retoma (el tiempo puede volver atrás y se sueltan todos los carriles).
+   */
   inputLog: [number, number, number][] = [];
   private cursor = 0;
   private buckets: { hit: number; total: number }[];
@@ -303,6 +306,17 @@ export class Scorer {
     const j: Judgment = Math.abs(d) <= this.wPerfect ? 'perfect' : Math.abs(d) <= this.wGood ? 'good' : 'miss';
     this.register(best, j, t, Math.round(d * 1000), this.isClean(best, j));
     return this.events[this.events.length - 1];
+  }
+
+  /**
+   * Pausa + retroceso: al retomar, el reloj vuelve un par de segundos atrás y todas las teclas
+   * quedan sueltas. Se anota en el registro para que el servidor rehaga la partida igual
+   * (es el único caso en que el tiempo del registro puede retroceder).
+   */
+  markResume(t: number) {
+    this.down.fill(false);
+    this.lastTime = t;
+    this.inputLog.push([Math.round(t * 1000) / 1000, -1, 3]);
   }
 
   /** Activa el modo Leyenda (multiplicador ×2 por hasta 8 s) si hay al menos 50 % de energía. */

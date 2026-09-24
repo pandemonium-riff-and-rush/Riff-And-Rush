@@ -12,6 +12,21 @@ export interface GlobalRankRow { pos: number; user_id: string; username: string 
 /* ---------- Puntajes ---------- */
 
 /**
+ * Pide al servidor una sesión de partida al empezar a tocar. submit-score la exige:
+ * así nadie puede subir una partida fabricada sin haberla jugado de verdad.
+ * Devuelve null si no hay sesión iniciada o Supabase no está configurado.
+ */
+export async function startPlaySession(chartId: string, diff: DifficultyId): Promise<string | null> {
+  const c = sb();
+  if (!c) return null;
+  const { data: s } = await c.auth.getSession();
+  if (!s.session) return null;
+  const { data, error } = await c.rpc('start_play', { p_chart: chartId, p_diff: diff });
+  if (error) { console.warn('[riff] no se pudo abrir la sesión de partida:', error.message); return null; }
+  return typeof data === 'string' ? data : null;
+}
+
+/**
  * Sube una partida terminada. El servidor rehace la partida con el registro de teclas
  * y guarda SU puntaje, no el que diga el navegador. Devuelve la XP ganada o null.
  */
@@ -20,16 +35,18 @@ export async function submitScoreCloud(
   diff: DifficultyId,
   r: { score: number; accuracy: number; stars: number; maxCombo: number },
   inputLog?: [number, number, number][],
-  modIds: string[] = []
+  modIds: string[] = [],
+  sessionId?: string
 ) {
   const c = sb();
   if (!c) return null;
   const { data: s } = await c.auth.getSession();
   if (!s.session) return null;
   if (!inputLog?.length) { console.warn('[riff] partida sin registro de teclas: no se sube'); return null; }
+  if (!sessionId) { console.warn('[riff] partida sin sesión del servidor: no se sube'); return null; }
   const { data, error } = await c.functions.invoke('submit-score', {
     body: {
-      chartId, difficulty: diff, inputLog, clientScore: Math.round(r.score),
+      chartId, difficulty: diff, sessionId, inputLog, clientScore: Math.round(r.score),
       mods: { precision: modIds.includes('precision'), mirror: modIds.includes('mirror'), dropless: modIds.includes('dropless') }
     }
   });
