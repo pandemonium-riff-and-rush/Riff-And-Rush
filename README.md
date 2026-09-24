@@ -9,6 +9,8 @@ npm install
 npm run dev
 ```
 
+Pruebas (motor, replay del servidor, parser, dificultades): `npm test`.
+
 Abre http://localhost:3000.
 
 ## Qué incluye esta versión (v0.1)
@@ -26,7 +28,7 @@ Abre http://localhost:3000.
 | Calibración de latencia | Lista |
 | Cuentas, charts compartidos y rankings reales | Pendiente (backend) |
 
-Los datos (charts propios, récords y ajustes) se guardan en `localStorage` del navegador mientras no hay backend.
+Sin `.env.local`, los datos (charts propios, récords y ajustes) se guardan en el `localStorage` del navegador (modo invitado).
 
 ## Cuentas y rankings (Supabase)
 
@@ -35,6 +37,12 @@ Los datos (charts propios, récords y ajustes) se guardan en `localStorage` del 
 3. En *Authentication → URL Configuration*: **Site URL** = `http://localhost:3000` y agrega `http://localhost:3000/**` en **Redirect URLs** (después, lo mismo con tu dominio real).
 4. Correo y contraseña funcionan de inmediato. Para **Google** o **Discord**: *Authentication → Sign In / Providers*, actívalos y pega el Client ID/Secret de cada uno (la callback que piden es la que te muestra Supabase ahí mismo).
 5. `npm install` (se agregó `@supabase/supabase-js`) y `npm run dev`.
+6. Corre también, en orden, `0002_revision.sql`, `0003_antitrampa.sql` y `0004_sesiones_y_ranking.sql`.
+7. Despliega la validación de puntajes: `supabase functions deploy submit-score` (usa `supabase/functions/_shared/replay.ts`).
+
+Cómo se valida una partida: al empezar, el juego pide una **sesión de partida** (`start_play`). Al terminar manda el registro de teclas y el id de la sesión a `submit-score`, que exige que la sesión sea tuya, no se haya usado y que haya pasado al menos el 90 % de lo que dura la canción. Luego rehace la partida y guarda el puntaje del servidor. Las pausas quedan marcadas en el registro (código 3), así que una partida con anuncios o pausas sí se puede subir. El registro de teclas y quién es admin ya no son públicos. El ranking global suma hasta 1.000 × peso de dificultad por canción según tu precisión, así las canciones largas no pesan más.
+
+Pendiente: las técnicas (barrido, ligado, pull-off, armónico, acordes) están en fase de prueba y solo existen en el cliente. Hasta llevarlas a `_shared/replay.ts`, los charts que las usen pueden ser rechazados por el servidor.
 
 Sin `.env.local` el juego sigue funcionando en modo invitado (todo en el navegador).
 
