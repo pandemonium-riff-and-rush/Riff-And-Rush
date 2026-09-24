@@ -150,7 +150,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       setPhase('waiting');
     } else if (st === 'playing' && (p === 'waiting' || p === 'intro' || p === 'resuming')) {
       hasPlayed.current = true;
-      setPhase('playing');
+      // Tras la precarga del video todavía queda el margen de inicio (tiempo negativo)
+      setPhase((clockRef.current?.time() ?? 0) < 0 ? 'countdown' : 'playing');
     } else if (st === 'ended') finish();
     else if (st === 'error') {
       setErrorMsg('El video no se puede reproducir aquí (puede que el dueño haya desactivado la reproducción en otros sitios). Prueba con otro video o usa el metrónomo.');
@@ -203,7 +204,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       sessionRef.current = startPlaySession(chart.id, diff).catch(() => null);
       sessionRef.current.then((id) => { sessionIdRef.current = id ?? undefined; });
     }
-    setPhase(lead > 0 ? 'countdown' : isYouTube ? 'waiting' : 'playing');
+    // YouTube: primero se precarga el video (y pasan los anuncios); el margen parte después
+    setPhase(isYouTube && c.status === 'waiting' ? 'waiting' : lead > 0 ? 'countdown' : isYouTube ? 'waiting' : 'playing');
   }, [auto, chart.id, diff, isYouTube, lead, practice, setPhase]);
 
   const pause = useCallback(() => {
@@ -527,8 +529,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           {phase === 'waiting' && (
             <div role="status" style={{ display: 'flex', gap: 10, padding: 14, borderRadius: 3, background: 'rgba(30,24,6,0.92)', border: '2px solid rgba(255,210,63,0.6)', color: 'var(--warn)' }}>
               <div className="col" style={{ gap: 3 }}>
-                <div className="cond" style={{ fontSize: 15 }}>Esperando al video</div>
-                <div className="small" style={{ color: '#EADFA8' }}>Puede haber un anuncio de YouTube. La canción sigue sola cuando el video avance.</div>
+                <div className="cond" style={{ fontSize: 15 }}>{hasPlayed.current ? 'Esperando al video' : 'Preparando el video'}</div>
+                <div className="small" style={{ color: '#EADFA8' }}>{hasPlayed.current ? 'Puede haber un anuncio de YouTube. La canción sigue sola cuando el video avance.' : 'Si YouTube pone un anuncio, pasa ahora. Después corren los segundos de inicio y parte la canción.'}</div>
               </div>
             </div>
           )}

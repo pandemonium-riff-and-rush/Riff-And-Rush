@@ -132,6 +132,9 @@ export function loadYouTubeApi(): Promise<void> {
   return apiPromise;
 }
 
+/** Cuánto antes del final del margen se le da play al video (lo que tarda YouTube en partir). */
+const KICK_EARLY = 0.12;
+
 export class YouTubeClock implements GameClock {
   status: ClockStatus = 'loading';
   onStatus?: (s: ClockStatus) => void;
@@ -150,6 +153,14 @@ export class YouTubeClock implements GameClock {
   private prerollUntil = 0;
   /** Lo silenciamos nosotros durante el margen de inicio (para devolverle el sonido después). */
   private mutedByUs = false;
+  /** Precarga en silencio hasta pasar los anuncios (ver watchPriming). */
+  private priming = false;
+  private primed = false;
+  private primeStarted = 0;
+  /** Ya se le dio play al video en este margen de inicio. */
+  private kicked = false;
+  /** Hasta cuándo dura el traspaso margen → canción (no se muestra "esperando" por un tirón). */
+  private handoffUntil = 0;
   private rate = 1;
   /** Mientras el juego mismo mueve el video, no se avisa de "alguien tocó el reproductor". */
   private guardUntil = 0;
@@ -196,14 +207,16 @@ export class YouTubeClock implements GameClock {
 
   private onState(state: number) {
     if (this.destroyed) return;
+    const now = performance.now();
     if (state === YT.PlayerState.ENDED) this.set('ended');
     else if (state === YT.PlayerState.BUFFERING || state === YT.PlayerState.UNSTARTED) {
-      if (this.wantPlaying) this.set('waiting');
+      // En el traspaso margen → canción un buffering cortito es normal: no se muestra "esperando"
+      if (this.wantPlaying && now > this.handoffUntil) this.set('waiting');
     } else if (state === YT.PlayerState.PLAYING && this.prerollUntil && !this.wantPlaying) {
       // Durante el margen de inicio el video tiene que quedarse quieto en 0. YouTube a veces
       // arranca solo al hacer seekTo sobre un video recién cargado: se vuelve a pausar.
       this.player?.pauseVideo();
-    } else if (state === YT.PlayerState.PAUSED && this.wantPlaying && performance.now() > this.guardUntil) {
+    } else if (state === YT.PlayerState.PAUSED && this.wantPlaying && now > this.guardUntil) {
       // El juego nunca pausa sin bajar wantPlaying: esto lo hizo el jugador en el reproductor
       this.onTamper?.('pause');
     }
@@ -211,7 +224,9 @@ export class YouTubeClock implements GameClock {
 
   /** Detecta si el tiempo del video realmente avanza (anuncios y buffering lo congelan). */
   private watch() {
-    if (!this.player || !this.ready || !this.wantPlaying || this.status === 'ended' || this.status === 'paused') return;
+    if (!this.player || !this.ready || this.status === 'ended' || this.status === 'paused') return;
+    if (this.priming) { this.watchPriming(); return; }
+    if (!this.wantPlaying) return;
     const now = performance.now();
     const yt = this.player.getCurrentTime?.() ?? 0;
     const state = this.player.getPlayerState?.();
@@ -221,43 +236,110 @@ export class YouTubeClock implements GameClock {
       this.onTamper?.('seek');
       return;
     }
-    if (yt !== this.lastYt) {
+    if (yt !== this.lastYt && (yt > this.lastYt || now > this.handoffUntil)) {
       if (yt > this.lastYt) this.lastAdvance = now;
       this.lastYt = yt;
       this.lastPerf = now;
     }
     const advancing = now - this.lastAdvance < 350;
     if (state === YT.PlayerState.PLAYING && advancing) this.set('playing');
-    else if (!advancing) this.set('waiting');
+    else if (!advancing && now > this.handoffUntil) this.set('waiting');
+  }
+
+  /**
+   * Precarga: al empezar, el video se reproduce en silencio hasta que su tiempo avanza de verdad.
+   * Si YouTube mete un anuncio, pasa acá (el juego muestra "Esperando al video"). Cuando ya corre
+   * el video real, se pausa, vuelve a 0 y recién ahí parte el margen de inicio. Así el play final
+   * es inmediato: el video ya está cargado y sin anuncios de por medio.
+   */
+  private watchPriming() {
+    const p = this.player!;
+    const yt = p.getCurrentTime?.() ?? 0;
+    const state = p.getPlayerState?.();
+    if (state === YT.PlayerState.PLAYING && yt >= 0.3) {
+      this.priming = false;
+      this.primed = true;
+      p.pauseVideo();
+      p.seekTo(0, true);
+      p.pauseVideo();
+      this.resume(-this.leadIn - this.offsetSec);
+    } else if (state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING && performance.now() - this.primeStarted > 1500) {
+      // Quedó detenido (el navegador no dejó reproducir): se vuelve a pedir
+      this.primeStarted = performance.now();
+      p.playVideo();
+    }
   }
 
   /** Inicia con margen: las notas bajan durante leadIn segundos antes de darle play al video. */
   start() {
     if (!this.ready || !this.player || typeof this.player.seekTo !== 'function') { this.pendingStart = true; return; }
+    if (!this.primed) {
+      const p = this.player;
+      this.priming = true;
+      this.primeStarted = performance.now();
+      this.wantPlaying = false;
+      if (!this.mutedByUs && !p.isMuted?.()) { p.mute?.(); this.mutedByUs = true; }
+      p.setPlaybackRate?.(this.rate);
+      p.playVideo();
+      this.set('waiting');
+      return;
+    }
     this.resume(-this.leadIn - this.offsetSec);
   }
 
   time() {
     if (this.status === 'paused') return this.pausedAt;
+    if (this.priming) return -this.leadIn - this.offsetSec;
+    const now = performance.now();
     if (this.prerollUntil) {
-      const left = (this.prerollUntil - performance.now()) / 1000;
+      const left = (this.prerollUntil - now) / 1000;
+      // Se le da play al video un poquito antes de que termine el margen: absorbe lo que tarda
+      // YouTube en partir y la canción entra justo a tiempo, sin frenar las notas
+      if (left <= KICK_EARLY && !this.kicked) this.kick();
       if (left > 0) return -left - this.offsetSec;
       this.prerollUntil = 0;
-      this.playFrom(0);
+      if (!this.kicked) this.kick();
+      this.set('playing');
     }
     if (this.status !== 'playing') return this.lastYt - this.offsetSec;
     const rate = (this.ready && this.player?.getPlaybackRate?.()) || 1;
-    let est = this.lastYt + ((performance.now() - this.lastPerf) / 1000) * rate;
-    // Evita pequeños saltos hacia atrás cuando el reproductor corrige su tiempo
-    if (est < this.mono && this.mono - est < 0.08) est = this.mono;
+    let est = this.lastYt + ((now - this.lastPerf) / 1000) * rate;
+    // Evita saltos hacia atrás cuando el reproductor corrige su tiempo. Justo al partir la canción
+    // se tolera más: las notas esperan un instante al video en vez de retroceder.
+    const hold = now < this.handoffUntil ? 0.5 : 0.08;
+    if (est < this.mono && this.mono - est < hold) est = this.mono;
     this.mono = est;
     return est - this.offsetSec;
+  }
+
+  /** Play del video al final del margen de inicio (sin buscar si ya está en 0). */
+  private kick() {
+    this.kicked = true;
+    const now = performance.now();
+    const left = Math.max(0, (this.prerollUntil - now) / 1000);
+    this.mono = -Infinity;
+    this.lastYt = 0;
+    // El reloj cuenta como si el video partiera exactamente al terminar el margen
+    this.lastPerf = now + left * 1000;
+    this.lastAdvance = now;
+    this.wantPlaying = true;
+    this.guardUntil = now + 1500;
+    this.handoffUntil = now + 1500;
+    if (this.ready && this.player) {
+      const p = this.player;
+      p.setPlaybackRate?.(this.rate);
+      if (this.mutedByUs) { p.unMute?.(); this.mutedByUs = false; }
+      if ((p.getCurrentTime?.() ?? 0) > 0.05) p.seekTo(0, true);
+      p.playVideo();
+    }
   }
 
   pause() {
     this.pausedAt = this.time();
     this.prerollUntil = 0;
+    this.priming = false;
     this.wantPlaying = false;
+    this.handoffUntil = 0;
     if (this.ready) this.player?.pauseVideo();
     this.set('paused');
   }
@@ -269,6 +351,7 @@ export class YouTubeClock implements GameClock {
     this.lastAdvance = 0;
     this.wantPlaying = true;
     this.guardUntil = performance.now() + 1200;
+    this.handoffUntil = 0;
     if (this.ready) {
       this.player?.setPlaybackRate?.(this.rate);
       if (this.mutedByUs) { this.player?.unMute?.(); this.mutedByUs = false; }
@@ -281,9 +364,12 @@ export class YouTubeClock implements GameClock {
   /** Retoma desde un tiempo de chart. Si cae antes del inicio del video, espera ese margen y luego parte en 0. */
   resume(from: number) {
     const v = from + this.offsetSec;
+    // Si alguien retoma mientras se precargaba (p. ej. modo práctica), se salta la precarga
+    this.priming = false;
     if (v < 0) {
       this.lastYt = 0;
       this.wantPlaying = false;
+      this.kicked = false;
       this.guardUntil = performance.now() + 1200;
       if (this.ready) this.holdAtStart();
       this.prerollUntil = performance.now() + (-v * 1000) / this.rate;
