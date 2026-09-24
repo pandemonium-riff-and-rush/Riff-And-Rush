@@ -28,7 +28,6 @@ interface Hud { score: number; combo: number; mult: number; acc: number; energy:
 const JUDGE_TEXT = { perfect: 'Perfecto', good: 'Bien', miss: 'Fallo', ghost: 'Sin nota' } as const;
 const JUDGE_COLOR = { perfect: '#3DDC84', good: '#3FA9FF', miss: '#FF4D6D', ghost: '#8C84B8' } as const;
 
-const RIVALS: [string, number][] = [['SofiStrings', 0.99], ['ElTucu', 0.97], ['NotaAzul', 0.9], ['DrumlessDan', 0.86], ['pulso', 0.74], ['Kenji_R', 0.62], ['Oso_Polar', 0.5]];
 
 export default function GameScreen({ chart, diff, auto = false, mods = {} }: { chart: Chart; diff: DifficultyId; auto?: boolean; mods?: GameMods }) {
   const router = useRouter();
@@ -430,17 +429,11 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   };
 
   const live = useMemo(() => {
-    // Ranking real de la semana si hay datos; si no, rivales de ejemplo
+    // Ranking real de la semana. Sin conexión: solo tu récord en este navegador (nada inventado)
     const others = board?.filter((r) => !(me.loggedIn && r.username === me.name)) ?? [];
     let rows: { n: string; score: number; pos: number }[];
-    if (board && others.length) {
-      rows = others.map((r, i) => ({ n: r.username ?? 'anónimo', score: r.score, pos: i + 1 }));
-    } else if (board) {
-      rows = [];
-    } else {
-      const top = Math.max(best?.score ?? 0, scorerRef.current.total * 50 * 3.2);
-      rows = RIVALS.map(([n, f], i) => ({ n, score: Math.round(top * f), pos: [1, 2, 12, 13, 21, 28, 35][i] }));
-    }
+    if (board) rows = others.map((r, i) => ({ n: r.username ?? 'anónimo', score: r.score, pos: i + 1 }));
+    else rows = best?.score ? [{ n: 'Tu récord', score: best.score, pos: 1 }] : [];
     const higher = rows.filter((r) => r.score > hud.score);
     const lower = rows.filter((r) => r.score <= hud.score);
     const myPos = higher.length ? higher[higher.length - 1].pos + 1 : 1;
@@ -702,7 +695,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
             </span>
           </Link>
           <section className="panel col" style={{ padding: 14, gap: 8, background: 'rgba(20,18,42,0.88)' }}>
-            <div className="row"><span className="label grow">Ranking en vivo</span><span className="cond" style={{ fontSize: 11, color: 'var(--accent)' }}>● {board ? 'Semana' : 'Ejemplo'}</span></div>
+            <div className="row"><span className="label grow">Ranking en vivo</span><span className="cond" style={{ fontSize: 11, color: 'var(--accent)' }}>● {board ? 'Semana' : 'Solo tú'}</span></div>
             {live.map((r, i) => (
               <div key={i} className="row" style={{ gap: 8, height: 34, padding: '0 8px', borderRadius: 2, ...(r.me ? { background: 'rgba(168,85,247,0.18)', border: '1px solid var(--accent)' } : { borderBottom: '1px solid var(--bg-hover)' }) }}>
                 <span className="mono small muted" style={{ width: 30, fontWeight: 700 }}>#{r.pos}</span>

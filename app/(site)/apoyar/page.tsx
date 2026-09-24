@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PLAYERS } from '@/lib/data/mock';
 
 const Check = () => <span aria-hidden="true" style={{ color: 'var(--ok)', fontWeight: 700 }}>✓</span>;
 
@@ -44,12 +43,8 @@ export default function Support() {
         <span><strong style={{ color: 'var(--warn)' }}>Quitar anuncios elimina nuestros anuncios.</strong> Los anuncios propios de YouTube no dependen de nosotros: si el video tiene uno, se va a mostrar igual (salvo que tengas YouTube Premium).</span>
       </div>
       <div className="row" style={{ flexWrap: 'wrap' }}>
-        <span className="small muted">Apoyadores recientes</span>
-        <div className="row" style={{ gap: 0 }}>
-          {PLAYERS.slice(0, 8).map((p, i) => <span key={p.name} title={p.name} className="avatar" style={{ width: 36, height: 36, background: p.color, fontSize: 12, boxShadow: '0 0 0 3px #0A0916', marginLeft: i ? -8 : 0 }}>{p.initials}</span>)}
-        </div>
-        <span className="grow" />
-        <span className="small muted">Solo aparecen quienes aceptaron salir en la lista.</span>
+        <span className="small muted">Apoyadores</span>
+        <span className="grow small muted">Pronto: la lista de quienes apoyan (solo quienes acepten aparecer).</span>
       </div>
     </main>
   );

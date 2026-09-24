@@ -92,7 +92,8 @@ export const DEMO_CHARTS: Chart[] = SEEDS.map((s, i) => {
     id: s.id,
     title: s.title,
     artist: s.artist,
-    charter: s.charter,
+    // Canciones de la casa: los nombres de charter de SEEDS eran inventados
+    charter: 'Riff&Rush',
     genre: s.genre,
     bpm: s.bpm,
     offsetMs: 0,

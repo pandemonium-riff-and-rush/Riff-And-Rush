@@ -30,6 +30,10 @@ export function modsQuery(m: GameMods) {
   return q.toString();
 }
 
+/** Sigla corta de cada mod para las tablas de ranking. */
+export const MOD_SHORT: Record<string, string> = { precision: 'PRE', mirror: 'ESP', dropless: 'SSP' };
+export function modName(id: string) { return MOD_INFO.find((m) => m.id === id)?.name ?? id; }
+
 export function modsLabel(m: GameMods) {
   return MOD_INFO.filter((x) => m[x.id]).map((x) => x.name).join(' · ');
 }

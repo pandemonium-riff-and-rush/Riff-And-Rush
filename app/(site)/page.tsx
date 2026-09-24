@@ -1,16 +1,35 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { Cover, DiffMinis } from '@/components/Cover';
 import { useCharts } from '@/lib/data/hooks';
-import { PLAYERS, closesIn } from '@/lib/data/mock';
+import { closesIn } from '@/lib/data/periods';
+import { fetchGlobalLeaderboard, fetchPublishedCharts, fetchTopCharts, type CloudChartRow, type GlobalRankRow, type TopChartRow } from '@/lib/data/cloud';
+import { initialsOf, useAuth } from '@/lib/auth/AuthProvider';
 import HeroHighway from '@/components/HeroHighway';
 import { GENRES, genreOf } from '@/lib/chart/genres';
 
 export default function Home() {
   const charts = useCharts();
-  const top = charts.slice(0, 6);
-  const fresh = [...charts].reverse().slice(0, 5);
+  const { configured } = useAuth();
+  // Datos reales de la semana (si hay Supabase). Nada inventado: si no hay datos, se dice.
+  const [topRows, setTopRows] = useState<TopChartRow[] | null>(null);
+  const [players, setPlayers] = useState<GlobalRankRow[] | null>(null);
+  // Solo charts publicados de verdad por la comunidad (no las canciones de la casa)
+  const [fresh, setFresh] = useState<CloudChartRow[] | null>(null);
+  useEffect(() => {
+    if (!configured) return;
+    fetchPublishedCharts(5).then(setFresh);
+    fetchTopCharts('week', 6).then(setTopRows);
+    fetchGlobalLeaderboard('week', 5).then(setPlayers);
+  }, [configured]);
+  const played = useMemo(() => (topRows ?? [])
+    .map((r) => ({ row: r, chart: charts.find((c) => c.id === r.chart_id) }))
+    .filter((x): x is { row: TopChartRow; chart: (typeof charts)[number] } => !!x.chart), [topRows, charts]);
+  // Sin partidas esta semana: se muestran destacadas, y se dice que lo son
+  const isTop = played.length > 0;
+  const top = isTop ? played.map((x) => x.chart) : charts.slice(0, 6);
 
   return (
     <main>
@@ -49,8 +68,8 @@ export default function Home() {
       <section className="page col" style={{ gap: 24, paddingBottom: 0 }}>
         <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="col grow" style={{ gap: 6 }}>
-            <h2 className="disp" style={{ fontSize: 32, lineHeight: '40px' }}>Top de la semana</h2>
-            <div className="muted">Las canciones más jugadas · {closesIn('week').toLowerCase()}</div>
+            <h2 className="disp" style={{ fontSize: 32, lineHeight: '40px' }}>{isTop ? 'Top de la semana' : 'Destacadas'}</h2>
+            <div className="muted">{isTop ? `Las canciones más jugadas · ${closesIn('week').toLowerCase()}` : 'Todavía no hay partidas esta semana: ¡estrena el ranking!'}</div>
           </div>
           <Link href="/rankings">Ver rankings →</Link>
         </div>
@@ -59,11 +78,11 @@ export default function Home() {
             <Link key={c.id} className="card" href={`/cancion/${c.id}`}>
               <div style={{ position: 'relative' }}>
                 <Cover chart={c} height={172} radius={0} />
-                <span className="mono" style={{ position: 'absolute', left: 10, top: 10, padding: '4px 8px', borderRadius: 2, background: 'rgba(10,9,22,0.8)', fontSize: 13, fontWeight: 700 }}>#{i + 1}</span>
+                {isTop && <span className="mono" style={{ position: 'absolute', left: 10, top: 10, padding: '4px 8px', borderRadius: 2, background: 'rgba(10,9,22,0.8)', fontSize: 13, fontWeight: 700 }}>#{i + 1}</span>}
               </div>
               <div className="col" style={{ padding: 14, gap: 4 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.title}</div>
-                <div className="small muted">{c.artist}</div>
+                <div className="small muted">{c.artist}{isTop && played[i] ? ` · ${played[i].row.plays} ${played[i].row.plays === 1 ? 'partida' : 'partidas'}` : ''}</div>
                 <div style={{ marginTop: 8 }}><DiffMinis chart={c} /></div>
               </div>
             </Link>
@@ -74,7 +93,10 @@ export default function Home() {
       <section className="page" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 24, paddingBottom: 0 }}>
         <div className="panel panel-pad col">
           <div className="row"><h2 className="grow" style={{ fontSize: 20 }}>Nuevos charts de la comunidad</h2><Link href="/canciones" className="small">Ver todos</Link></div>
-          {fresh.map((c) => (
+          {!configured && <div className="muted" style={{ padding: '12px 0' }}>Los charts de la comunidad aparecen cuando el juego está conectado a cuentas.</div>}
+          {configured && fresh === null && <div className="muted" style={{ padding: '12px 0' }}>Cargando…</div>}
+          {fresh?.length === 0 && <div className="muted" style={{ padding: '12px 0' }}>Todavía no hay charts publicados. <Link href="/editor">¡Crea el primero!</Link></div>}
+          {fresh?.map((row) => ({ ...row.data, id: row.id, charter: row.data.charter })).map((c) => (
             <Link key={c.id} className="list-row" href={`/cancion/${c.id}`}>
               <Cover chart={c} size={48} />
               <div className="col grow" style={{ gap: 2 }}>
@@ -87,17 +109,23 @@ export default function Home() {
         </div>
         <div className="panel panel-pad col">
           <div className="row"><h2 className="grow" style={{ fontSize: 20 }}>Mejores jugadores de la semana</h2><Link href="/rankings" className="small">Ranking completo</Link></div>
-          {PLAYERS.slice(0, 5).map((p, i) => (
-            <Link key={p.name} className="list-row" href="/perfil">
-              <span className="mono" style={{ width: 28, fontWeight: 700, color: ['#F5B700', '#CFCAEA', '#FF8A3D', '#A9A3CC', '#A9A3CC'][i] }}>{i + 1}</span>
-              <span className="avatar" style={{ width: 40, height: 40, background: p.color, fontSize: 14 }}>{p.initials}</span>
-              <div className="col grow" style={{ gap: 2 }}>
-                <div style={{ fontWeight: 600 }}>{p.name}</div>
-                <div className="small muted">{p.country}</div>
+          {!configured && <div className="muted" style={{ padding: '12px 0' }}>Los rankings aparecen cuando el juego está conectado a cuentas.</div>}
+          {configured && players === null && <div className="muted" style={{ padding: '12px 0' }}>Cargando…</div>}
+          {players?.length === 0 && <div className="muted" style={{ padding: '12px 0' }}>Nadie ha jugado esta semana todavía. <Link href="/canciones">¡Juega y quédate con el primer lugar!</Link></div>}
+          {players?.map((p, i) => {
+            const name = p.username ?? 'anónimo';
+            return (
+              <div key={p.user_id} className="list-row">
+                <span className="mono" style={{ width: 28, fontWeight: 700, color: ['#F5B700', '#CFCAEA', '#FF8A3D', '#A9A3CC', '#A9A3CC'][i] }}>{p.pos}</span>
+                <span className="avatar" style={{ width: 40, height: 40, background: p.color, fontSize: 14 }}>{initialsOf(name)}</span>
+                <div className="col grow" style={{ gap: 2 }}>
+                  <div style={{ fontWeight: 600 }}>{name}</div>
+                  <div className="small muted">{p.country ?? ''}</div>
+                </div>
+                <span className="mono" style={{ fontWeight: 700 }}>{Number(p.total).toLocaleString('es-CL')}</span>
               </div>
-              <span className="mono" style={{ fontWeight: 700 }}>{(1284920 - i * 23410).toLocaleString('es-CL')}</span>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       </section>
 

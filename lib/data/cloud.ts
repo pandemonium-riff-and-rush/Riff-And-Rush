@@ -6,7 +6,9 @@ import { getChart } from './store';
 
 export type Period = 'week' | 'month' | 'year' | 'all';
 
-export interface ChartRankRow { pos: number; user_id: string; username: string | null; color: string; country: string | null; level: number; score: number; accuracy: number; stars: number }
+export interface ChartRankRow { pos: number; user_id: string; username: string | null; color: string; country: string | null; level: number; score: number; accuracy: number; stars: number; mods?: string[] | null }
+export interface CharterRankRow { pos: number; user_id: string; username: string | null; color: string; country: string | null; level: number; plays: number; players: number; charts: number }
+export interface TopChartRow { chart_id: string; plays: number; players: number }
 export interface GlobalRankRow { pos: number; user_id: string; username: string | null; color: string; country: string | null; level: number; total: number; songs: number; accuracy: number }
 
 /* ---------- Puntajes ---------- */
@@ -70,6 +72,24 @@ export async function fetchGlobalLeaderboard(period: Period, limit = 50): Promis
   const { data, error } = await c.rpc('global_leaderboard', { p_period: period, p_limit: limit });
   if (error) { console.warn('[riff]', error.message); return null; }
   return (data ?? []) as GlobalRankRow[];
+}
+
+/** Canciones más jugadas del período. null si no hay Supabase. */
+export async function fetchTopCharts(period: Period, limit = 6): Promise<TopChartRow[] | null> {
+  const c = sb();
+  if (!c) return null;
+  const { data, error } = await c.rpc('top_charts', { p_period: period, p_limit: limit });
+  if (error) { console.warn('[riff]', error.message); return null; }
+  return ((data ?? []) as TopChartRow[]).map((r) => ({ ...r, plays: Number(r.plays), players: Number(r.players) }));
+}
+
+/** Charters cuyos charts publicados se jugaron más en el período. null si no hay Supabase. */
+export async function fetchCharterLeaderboard(period: Period, limit = 50): Promise<CharterRankRow[] | null> {
+  const c = sb();
+  if (!c) return null;
+  const { data, error } = await c.rpc('charter_leaderboard', { p_period: period, p_limit: limit });
+  if (error) { console.warn('[riff]', error.message); return null; }
+  return (data ?? []) as CharterRankRow[];
 }
 
 export async function fetchMyGlobalRank(period: Period): Promise<{ pos: number; total: number; songs: number } | null> {

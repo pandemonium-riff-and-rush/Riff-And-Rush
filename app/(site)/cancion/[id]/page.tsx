@@ -2,17 +2,16 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Cover } from '@/components/Cover';
 import type { Chart, DifficultyId } from '@/lib/chart/types';
 import { DIFFICULTIES, formatTime, playEnd } from '@/lib/chart/types';
 import { getBest, getChart, getVideoOverrides, setVideoOverride, type ScoreRecord } from '@/lib/data/store';
-import { PLAYERS } from '@/lib/data/mock';
 import { parseYouTubeId } from '@/lib/youtube';
 import OffsetControl from '@/components/OffsetControl';
 import { initialsOf, useAuth, useMe } from '@/lib/auth/AuthProvider';
 import { fetchChartLeaderboard, loadChart, reportChart, REPORT_REASONS, type ChartRankRow, type Period } from '@/lib/data/cloud';
-import { MOD_INFO, modsQuery, type GameMods } from '@/lib/game/mods';
+import { MOD_INFO, MOD_SHORT, modName, modsQuery, type GameMods } from '@/lib/game/mods';
 import { getSettings, saveSettings } from '@/lib/data/store';
 import { genreOf } from '@/lib/chart/genres';
 import { checkVideo, type VideoCheck } from '@/lib/game/ytcheck';
@@ -58,14 +57,11 @@ export default function SongDetail() {
   }, [configured, chart, sel, per]);
   useEffect(() => { if (chart) setBest(getBest(chart.id, sel)); }, [chart, sel]);
 
-  const mock = useMemo(() => {
-    const lvl = DIFFICULTIES.find((d) => d.id === sel)!.level;
-    const f = [1, 1.012, 1.03][per] * (0.55 + lvl * 0.12);
-    return PLAYERS.slice(0, 6).map((p, i) => ({ ...p, pos: i + 1, score: Math.round((961220 - i * 12600) * f), acc: (99.4 - i * 0.3).toFixed(1).replace('.', ',') }));
-  }, [sel, per]);
-  const rows = board
-    ? board.filter((r) => !(me.loggedIn && r.username === me.name)).slice(0, 6).map((r) => { const name = r.username ?? 'anónimo'; return { name, initials: initialsOf(name), color: r.color, pos: Number(r.pos), score: r.score, acc: (r.accuracy * 100).toFixed(1).replace('.', ',') }; })
-    : mock;
+  // Solo datos reales: sin conexión o cargando no se inventan jugadores
+  const rows = (board ?? []).filter((r) => !(me.loggedIn && r.username === me.name)).slice(0, 6).map((r) => {
+    const name = r.username ?? 'anónimo';
+    return { name, initials: initialsOf(name), color: r.color, pos: Number(r.pos), score: r.score, acc: (r.accuracy * 100).toFixed(1).replace('.', ','), mods: r.mods ?? [] };
+  });
   const myCloud = board?.find((r) => me.loggedIn && r.username === me.name);
 
   if (chart === undefined) return <main className="page" />;
@@ -190,17 +186,22 @@ export default function SongDetail() {
         </section>
 
         <section aria-label="Ranking de la canción" className="panel col" style={{ gridColumn: 'span 4', padding: 20, gap: 12 }}>
-          <div className="row"><h2 className="grow" style={{ fontSize: 20 }}>Ranking · {info.name}{!board && <span className="small muted" style={{ fontWeight: 400 }}> (ejemplo)</span>}</h2><Link href="/rankings" className="small">Ver todo</Link></div>
+          <div className="row"><h2 className="grow" style={{ fontSize: 20 }}>Ranking · {info.name}</h2><Link href="/rankings" className="small">Ver todo</Link></div>
           <div className="seg" role="tablist" style={{ alignSelf: 'flex-start' }}>
             {['Semana', 'Mes', 'Año'].map((l, i) => <button key={l} type="button" role="tab" aria-selected={per === i} onClick={() => setPer(i)}>{l}</button>)}
           </div>
           <div className="col" style={{ gap: 0 }}>
+            {!configured && <div className="small muted" style={{ padding: '14px 0' }}>El ranking aparece cuando el juego está conectado a cuentas.</div>}
+            {configured && !board && <div className="small muted" style={{ padding: '14px 0' }}>Cargando…</div>}
             {board && rows.length === 0 && <div className="small muted" style={{ padding: '14px 0' }}>Nadie ha jugado esta dificultad en este período. ¡Sé el primero!</div>}
             {rows.map((r) => (
               <div key={r.name} className="row" style={{ height: 48, borderBottom: '1px solid var(--border)' }}>
                 <span className="mono muted" style={{ width: 24, fontWeight: 700 }}>{r.pos}</span>
                 <span className="avatar" style={{ width: 28, height: 28, background: r.color, fontSize: 11 }}>{r.initials}</span>
-                <span className="grow" style={{ fontSize: 14, fontWeight: 500 }}>{r.name}</span>
+                <span className="grow row" style={{ gap: 6, fontSize: 14, fontWeight: 500, minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                  {r.mods.map((m) => <span key={m} className="mono" title={modName(m)} style={{ fontSize: 10, padding: '1px 4px', borderRadius: 2, border: '1px solid var(--accent)', color: '#C084FC' }}>{MOD_SHORT[m] ?? m}</span>)}
+                </span>
                 <span className="small muted">{r.acc} %</span>
                 <span className="mono" style={{ width: 92, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{r.score.toLocaleString('es-CL')}</span>
               </div>

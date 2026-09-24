@@ -707,8 +707,8 @@ function Editor() {
             {videoId ? <div id="editor-yt" /> : <div className="col muted small" style={{ height: '100%', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24, gap: 10 }}><Icon name="metronome" size={28} />Sin video: se usa el metrónomo. Pega un link de YouTube para sincronizar el chart.</div>}
           </div>
           <div className="row">
-            <input className="input grow" placeholder="Link o ID del video de YouTube" value={videoInput} onChange={(e) => { setVideoInput(e.target.value); setVcheck(null); setFilled(''); }} />
-            <button className="btn btn-s btn-sm" type="button" onClick={applyVideo}>Cargar y probar</button>
+            <input className="input grow" style={{ minWidth: 0 }} placeholder="Link de YouTube" title="Pega el link o el ID del video de YouTube" aria-label="Link o ID del video de YouTube" value={videoInput} onChange={(e) => { setVideoInput(e.target.value); setVcheck(null); setFilled(''); }} />
+            <button className="btn btn-s btn-sm" type="button" onClick={applyVideo} title="Carga el video y revisa que se pueda reproducir" style={{ flexShrink: 0 }}>Cargar</button>
           </div>
           {vcheck && (
             <div className="small row" style={{ gap: 8, color: vcheck === 'probando' ? 'var(--text-2)' : vcheck.ok ? 'var(--ok)' : 'var(--hot-soft)' }}>
