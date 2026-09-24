@@ -62,3 +62,24 @@ describe('generador de dificultades', () => {
     }
   });
 });
+
+import { blankChart, isBlankTitle, lowerBound, sortNotes } from '@/lib/chart/editing';
+
+describe('utilidades del editor', () => {
+  const notes = [0.5, 1, 1, 2, 3].map((t, i) => ({ t, lane: i % 5, len: 0 }));
+  it('lowerBound encuentra el primer índice con t >= x', () => {
+    expect(lowerBound(notes, 0)).toBe(0);
+    expect(lowerBound(notes, 1)).toBe(1);
+    expect(lowerBound(notes, 1.5)).toBe(3);
+    expect(lowerBound(notes, 10)).toBe(5);
+  });
+  it('sortNotes ordena por tiempo y después por carril', () => {
+    const s = [{ t: 1, lane: 3, len: 0 }, { t: 1, lane: 0, len: 0 }, { t: 0, lane: 4, len: 0 }].sort(sortNotes);
+    expect(s.map((n) => n.lane)).toEqual([4, 0, 3]);
+  });
+  it('un chart nuevo parte vacío y con título de relleno', () => {
+    const c = blankChart();
+    expect(c.difficulties.expert!.notes).toHaveLength(0);
+    expect(isBlankTitle(c.title)).toBe(true);
+  });
+});

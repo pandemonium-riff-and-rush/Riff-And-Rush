@@ -21,6 +21,7 @@ import { GENRE_OPTIONS } from '@/lib/chart/genres';
 import { checkChart, type ChartIssue } from '@/lib/chart/checks';
 import { checkVideo, type VideoCheck } from '@/lib/game/ytcheck';
 import { deleteChartCloud, fetchCloudChart, upsertChartCloud } from '@/lib/data/cloud';
+import { blankChart, isBlankArtist, isBlankTitle, lowerBound, round3, sortNotes } from '@/lib/chart/editing';
 
 /* ------------------------------------------------------------------ */
 /* Constantes de la línea de tiempo horizontal                         */
@@ -43,30 +44,6 @@ type Drag =
   | { mode: 'scrub' };
 
 interface Snapshot { difficulties: Chart['difficulties']; durationSec: number }
-
-/** Un campo está "libre" si está vacío o todavía tiene el texto de relleno. */
-const isBlankTitle = (v: string) => !v.trim() || v.trim() === 'Nueva canción';
-const isBlankArtist = (v: string) => !v.trim() || v.trim() === 'Artista';
-
-function blankChart(): Chart {
-  return {
-    id: 'local-' + Date.now().toString(36),
-    title: 'Nueva canción', artist: 'Artista', charter: 'invitado', genre: 'Rock',
-    bpm: 120, offsetMs: 0, leadInSec: 3, durationSec: 180, source: { kind: 'metronome' },
-    cover: { bg: '#2B1A5E', fg: '#A855F7' },
-    difficulties: { expert: { lanes: 5, notes: [] } }, version: 1
-  };
-}
-
-const sortNotes = (a: Note, b: Note) => a.t - b.t || a.lane - b.lane;
-const round3 = (x: number) => Math.round(x * 1000) / 1000;
-
-/** Primer índice con t >= x (las notas están ordenadas). */
-function lowerBound(notes: Note[], x: number) {
-  let lo = 0, hi = notes.length;
-  while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m].t < x) lo = m + 1; else hi = m; }
-  return lo;
-}
 
 function Editor() {
   const router = useRouter();
@@ -806,7 +783,8 @@ function Editor() {
             );
           })}
           <button className="btn btn-t btn-sm" type="button" onClick={genDifficulties}>Generar las demás desde Experto</button>
-          <button className="btn btn-g btn-sm" type="button" disabled title="Próximamente" style={{ border: '1px dashed var(--border-strong)' }}>Borrador con IA · PRO</button>
+          <button className="btn btn-g btn-sm" type="button" disabled aria-describedby="ia-soon" style={{ border: '1px dashed var(--border-strong)' }}>Borrador con IA · PRO</button>
+          <div id="ia-soon" className="small muted" style={{ marginTop: -4, textAlign: 'center' }}>Próximamente: un primer borrador sacado del audio, para que tú lo pulas.</div>
           <Link href="/perfil" className="small" style={{ marginTop: 'auto' }}>Mis charts →</Link>
         </section>
       </div>

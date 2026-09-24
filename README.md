@@ -61,7 +61,7 @@ lib/data/             charts de demo, persistencia local y datos de ejemplo
 
 ## Reglas de YouTube que respeta el diseño
 
-- El reproductor se ve siempre, mide 560×315 y no tiene nada encima.
+- El reproductor se ve siempre, mide 400×225 (YouTube pide un mínimo de 200×200) y no tiene nada encima.
 - No se descarga ni se separa el audio del video.
 - No se bloquean los anuncios: el juego espera a que el video avance.
 - No se cobra por reproducir videos. Los pagos son por donación o por quitar nuestros anuncios.

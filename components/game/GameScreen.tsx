@@ -19,6 +19,7 @@ import { ExtraInputs } from '@/lib/game/input';
 import { MOD_INFO, modsLabel, type GameMods } from '@/lib/game/mods';
 import { tempoMap } from '@/lib/chart/tempo';
 import OffsetControl from '@/components/OffsetControl';
+import { HudCell, MultRing } from './Hud';
 
 type Phase = 'loading' | 'intro' | 'waiting' | 'countdown' | 'playing' | 'paused' | 'resuming' | 'error' | 'finished';
 
@@ -572,7 +573,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
             </div>
           )}
           {banner && (phase === 'playing' || phase === 'countdown') && (
-            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: HW / 2, top: 150, fontSize: 46, lineHeight: '50px', color: banner.color, textShadow: `4px 4px 0 #000, 0 0 30px ${banner.color}`, pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
+            // Arriba, en el fondo de la autopista (donde las notas aún son chicas) y con placa oscura: no tapa lo que viene
+            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: HW / 2, top: 18, padding: '4px 18px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: `1px solid ${banner.color}`, fontSize: 30, lineHeight: '36px', color: banner.color, textShadow: `3px 3px 0 #000, 0 0 18px ${banner.color}`, pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
           )}
           {judge && (phase === 'playing' || phase === 'countdown') && (
             <div key={judge.key} className="judge-pop" style={{ position: 'absolute', left: HW / 2, top: HIT - 100, textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
@@ -715,40 +717,5 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         @keyframes fire { from { transform: scaleY(1) } to { transform: scaleY(1.15) } }
       `}</style>
     </div>
-  );
-}
-
-function HudCell({ label, children, last, row }: { label: string; children: React.ReactNode; last?: boolean; row?: boolean }) {
-  if (row) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, borderRight: last ? 0 : '1px solid var(--border)' }}>
-        {children}
-        <span className="label" style={{ fontSize: 12, color: 'var(--text-3)', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{label}</span>
-      </div>
-    );
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: last ? 'row' : 'column', alignItems: 'center', justifyContent: 'center', gap: last ? 12 : 4, borderRight: last ? 0 : '1px solid var(--border)' }}>
-      <span className="label" style={{ fontSize: 12, color: 'var(--text-3)' }}>{label}</span>
-      {children}
-    </div>
-  );
-}
-
-/** Anillo del multiplicador: 10 segmentos que se llenan con la racha (como el medidor clásico). */
-function MultRing({ combo, mult, boosting, color }: { combo: number; mult: number; boosting: boolean; color: string }) {
-  const base = boosting ? mult / 2 : mult;
-  const filled = base >= 4 ? 10 : combo % 10;
-  const R = 24, C = 28;
-  return (
-    <svg width="56" height="56" viewBox="0 0 56 56" aria-label={`Multiplicador por ${mult}`}>
-      {Array.from({ length: 10 }).map((_, i) => {
-        const a0 = (-90 + i * 36 + 3) * (Math.PI / 180), a1 = (-90 + (i + 1) * 36 - 3) * (Math.PI / 180);
-        const d = `M${C + R * Math.cos(a0)} ${C + R * Math.sin(a0)} A${R} ${R} 0 0 1 ${C + R * Math.cos(a1)} ${C + R * Math.sin(a1)}`;
-        return <path key={i} d={d} stroke={i < filled ? color : '#2A2448'} strokeWidth="5" strokeLinecap="round" fill="none" style={i < filled ? { filter: `drop-shadow(0 0 3px ${color})` } : undefined} />;
-      })}
-      {base >= 4 && <path className="mult-fire" d="M28 8c2 6 9 8 9 17a9 9 0 0 1-18 0c0-5 3-8 5-10 0 4 1 5 4 6 0-5-1-8 0-13z" fill={boosting ? '#F5B700' : '#EC4899'} opacity="0.35" />}
-      <text x="28" y="34" textAnchor="middle" fill="#fff" fontSize="18" style={{ fontFamily: "var(--font-display)" }}>×{mult}</text>
-    </svg>
   );
 }
