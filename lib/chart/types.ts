@@ -107,6 +107,19 @@ export function playEnd(c: { durationSec: number; endSec?: number }) {
   return c.endSec && c.endSec > 0 ? Math.min(c.endSec, c.durationSec) : c.durationSec;
 }
 
+/**
+ * Margen de inicio: cuántos segundos corre el juego ANTES de que parta la canción.
+ * El margen del chart es el tiempo mínimo que el jugador ve bajar notas antes de la primera.
+ * Si la canción ya tiene una intro más larga que eso, el video parte de inmediato (0 s).
+ * `offsetSec` = desfase video/chart (positivo = las notas llegan más tarde).
+ */
+export function preRollSec(marginSec: number, notes: Note[], offsetSec = 0) {
+  if (!notes.length) return 0;
+  let first = Infinity;
+  for (const n of notes) first = Math.min(first, n.t);
+  return Math.max(0, Math.round((marginSec - first - offsetSec) * 1000) / 1000);
+}
+
 /** Último segundo con nota (incluye la cola de las notas largas). */
 export function lastNoteEnd(notes: Note[]) {
   let end = 0;

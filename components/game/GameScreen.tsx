@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Chart, DifficultyId } from '@/lib/chart/types';
-import { difficultyInfo, formatTime, lastNoteEnd, LANE_COLORS, playEnd } from '@/lib/chart/types';
+import { difficultyInfo, formatTime, lastNoteEnd, LANE_COLORS, playEnd, preRollSec } from '@/lib/chart/types';
 import { GameClock, MetronomeClock, YouTubeClock, type ClockStatus, type TamperKind } from '@/lib/game/clock';
 import { Scorer } from '@/lib/game/engine';
 import { drawHighway, HH, HIT, HW, laneX } from '@/lib/game/render';
@@ -36,7 +36,6 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const info = difficultyInfo(diff);
   const lanes = dc.lanes;
   const isYouTube = chart.source.kind === 'youtube';
-  const lead = Math.max(0, chart.leadInSec ?? 3);
   const practice = mods.practice ?? null;
   const tmap = useMemo(() => tempoMap(chart.bpm, chart.tempo), [chart.bpm, chart.tempo]);
   // Fin de la partida: el charter puede cortar antes si el video sigue con créditos
@@ -47,6 +46,12 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     return mods.mirror ? ns.map((n) => ({ ...n, lane: lanes - 1 - n.lane })) : ns;
   }, [dc.notes, endAt, lanes, mods.mirror]);
   const lastNote = useMemo(() => lastNoteEnd(playNotes), [playNotes]);
+  // Margen de inicio: el juego corre antes que la canción solo lo necesario para que la
+  // primera nota no aparezca encima. Si la canción ya tiene intro, el video parte al tiro.
+  const lead = useMemo(
+    () => preRollSec(Math.max(0, chart.leadInSec ?? 3), playNotes, isYouTube ? chart.offsetMs / 1000 : 0),
+    [chart.leadInSec, chart.offsetMs, isYouTube, playNotes]
+  );
   const scorerOpts = useMemo(() => ({ precision: mods.precision, dropless: mods.dropless, ghostPenalty: diff !== 'easy' && !practice && !auto }), [mods.precision, mods.dropless, diff, practice, auto]);
   const makeScorer = useCallback(() => {
     const sc = new Scorer(playNotes, endAt, scorerOpts);
@@ -93,6 +98,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const sessionRef = useRef<Promise<string | null> | null>(null);
   const sessionIdRef = useRef<string | undefined>(undefined);
   const hasPlayed = useRef(false);
+  /** true si la cuenta regresiva viene de retomar una pausa (ahí sí va el número grande). */
+  const afterPause = useRef(false);
   const finishedRef = useRef(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const best = useMemo(() => getBest(chart.id, diff), [chart.id, diff]);
@@ -214,6 +221,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     if (phaseRef.current !== 'paused') return;
     setTamper(null);
     const from = restart ? (practice ? practice.from - 2 : -lead - (isYouTube ? chart.offsetMs / 1000 : 0)) : (clockRef.current?.time() ?? 0) - 2;
+    afterPause.current = !restart;
     if (restart) {
       scorerRef.current = makeScorer();
       eventsSeen.current = 0;
@@ -591,7 +599,12 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
             </div>
           )}
 
-          {(phase === 'countdown' || phase === 'resuming') && (
+          {phase === 'countdown' && !afterPause.current && (
+            <div className="cond" style={{ position: 'absolute', left: HW / 2, top: 18, transform: 'translateX(-50%)', padding: '4px 14px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: '1px solid var(--border)', fontSize: 14, letterSpacing: '0.14em', color: 'var(--text-2)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+              LA CANCIÓN PARTE EN {cd} S
+            </div>
+          )}
+          {(phase === 'resuming' || (phase === 'countdown' && afterPause.current)) && (
             <div style={{ position: 'absolute', left: 0, top: 120, width: HW, textAlign: 'center', pointerEvents: 'none' }}>
               {phase === 'resuming' && <div className="cond" style={{ fontSize: 20, color: 'var(--text-3)' }}>Retrocediendo 2 s</div>}
               <div key={cd} className="disp cd-pop" style={{ fontSize: 150, lineHeight: '150px', textShadow: '6px 6px 0 #000, 0 0 50px rgba(168,85,247,0.8)' }}>{cd}</div>

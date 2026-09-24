@@ -83,3 +83,22 @@ describe('utilidades del editor', () => {
     expect(isBlankTitle(c.title)).toBe(true);
   });
 });
+
+import { preRollSec } from '@/lib/chart/types';
+
+describe('margen de inicio', () => {
+  const at = (t: number) => [{ t, lane: 0, len: 0 }, { t: t + 1, lane: 1, len: 0 }];
+  it('si la primera nota llega antes del margen, el juego corre antes lo que falta', () => {
+    expect(preRollSec(3, at(0.5))).toBe(2.5);
+    expect(preRollSec(3, at(0))).toBe(3);
+  });
+  it('si la canción ya tiene intro, el video parte de inmediato', () => {
+    expect(preRollSec(3, at(8))).toBe(0);
+    expect(preRollSec(3, at(3))).toBe(0);
+  });
+  it('considera el desfase del video', () => {
+    expect(preRollSec(3, at(1), 1)).toBe(1);
+    expect(preRollSec(3, at(1), -1)).toBe(3);
+  });
+  it('sin notas no hay margen', () => expect(preRollSec(3, [])).toBe(0));
+});
