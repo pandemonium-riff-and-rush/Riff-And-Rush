@@ -65,3 +65,13 @@ describe('Scorer (motor del juego)', () => {
     expect(s.hit).toBe(simple.length);
   });
 });
+
+describe('modo Leyenda', () => {
+  it('no parte activo durante el margen de inicio (tiempo negativo)', () => {
+    const s = new Scorer(simple, 25);
+    s.update(-3, new Array(6).fill(false));
+    expect(s.boosting).toBe(false);
+    expect(s.multiplier).toBe(1);
+    expect(s.energy).toBe(0);
+  });
+});

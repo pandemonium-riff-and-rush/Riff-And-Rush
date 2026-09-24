@@ -59,7 +59,9 @@ export class Scorer {
   good = 0;
   miss = 0;
   energy = 0; // 0..1
-  boostUntil = -1;
+  // -Infinity (no -1): durante el margen de inicio el tiempo es negativo y con -1 el juego
+  // creía estar en modo Leyenda desde el principio
+  boostUntil = -Infinity;
   events: JudgeEvent[] = [];
   /** Total de juicios emitidos (no se recorta como events). */
   eventCount = 0;

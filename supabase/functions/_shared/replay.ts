@@ -16,7 +16,7 @@ export const DIFFS = ['easy', 'medium', 'hard', 'expert', 'legend'];
 export class Scorer {
   notes: (Note & { state: number; holding: boolean; heldUntil: number })[];
   score = 0; combo = 0; maxCombo = 0; perfect = 0; good = 0; miss = 0; ghosts = 0;
-  energy = 0; boostUntil = -1; lastTime = 0;
+  energy = 0; boostUntil = -Infinity; lastTime = 0;
   private cursor = 0;
   private lastHitAt = [-99, -99, -99, -99, -99, -99];
 
