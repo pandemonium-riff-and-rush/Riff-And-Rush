@@ -15,6 +15,7 @@ import { Logo } from '@/components/Nav';
 import { Backdrop, BH, BW, MicAnalyser } from '@/lib/game/backdrop';
 import { useMe } from '@/lib/auth/AuthProvider';
 import { fetchChartLeaderboard, startPlaySession, type ChartRankRow } from '@/lib/data/cloud';
+import { logEvent } from '@/lib/data/events';
 import { ExtraInputs } from '@/lib/game/input';
 import { MOD_INFO, modsLabel, type GameMods } from '@/lib/game/mods';
 import { tempoMap } from '@/lib/chart/tempo';
@@ -64,6 +65,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const [errorMsg, setErrorMsg] = useState('');
   const [scale, setScale] = useState(1);
   const [tamper, setTamper] = useState<TamperKind | null>(null);
+  /** Aviso breve cuando el reloj repuso el video solo (no corta la partida). */
+  const [recovered, setRecovered] = useState(false);
 
   const phaseRef = useRef<Phase>(phase);
   const clockRef = useRef<GameClock | null>(null);
@@ -158,6 +161,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     }
   }, [finish, setPhase]);
 
+  /** Aviso cuando el video lleva demasiado rato sin partir (se registra y se ofrece salida). */
+  const [stuck, setStuck] = useState(false);
+
   useEffect(() => {
     const clock: GameClock = chart.source.kind === 'youtube'
       ? new YouTubeClock('yt-player', chart.source.videoId, chart.offsetMs / 1000, lead)
@@ -165,6 +171,15 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     clock.onStatus = onClockStatus;
     // Si alguien pausa o mueve el video desde el reproductor, el juego se pausa solo
     // y al continuar el video vuelve al segundo correcto (no se queda trabado).
+    if (clock instanceof YouTubeClock) {
+      clock.onError = (code) => logEvent('video_error', String(code), chart.id);
+      clock.onStuck = () => { setStuck(true); logEvent('player_stuck', 'más de 30 s preparando', chart.id); };
+    }
+    clock.onRecover = () => {
+      const p = phaseRef.current;
+      if (p !== 'playing' && p !== 'countdown' && p !== 'waiting') return;
+      setRecovered(true);
+    };
     clock.onTamper = (kind) => {
       const p = phaseRef.current;
       if (p !== 'playing' && p !== 'countdown' && p !== 'waiting') return;
@@ -422,6 +437,12 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     return () => clearTimeout(id);
   }, [judge]);
 
+  useEffect(() => {
+    if (!recovered) return;
+    const id = setTimeout(() => setRecovered(false), 3500);
+    return () => clearTimeout(id);
+  }, [recovered]);
+
   /* ---------- Toque en pantalla (móvil) ---------- */
   const laneFromPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -490,11 +511,14 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
              */
             <div style={{ position: 'relative', width: 400, height: 225, background: '#000' }}>
               <div id="yt-player" />
-              {/* El video no se toca: se pausa solo con nuestro botón o Esc. Se deja libre únicamente
-                  mientras YouTube muestra un anuncio (fase "esperando"), para poder saltarlo. */}
-              {phase !== 'waiting' && (
-                <div aria-hidden onMouseDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()}
-                  style={{ position: 'absolute', inset: 0, cursor: 'default', background: 'transparent' }} />
+              {/* Nada encima del reproductor: las políticas de YouTube prohíben taparlo o
+                  bloquear sus enlaces. Que no se pueda manipular sin querer lo resuelven
+                  controls:0 + disablekb:1 (oficiales), el tabindex -1 del iframe y, si
+                  igual alguien le pega un clic, onRecover: el reloj repone el video solo. */}
+              {recovered && (
+                <div role="status" style={{ position: 'absolute', left: 8, right: 8, bottom: 8, padding: '6px 10px', borderRadius: 3, background: 'rgba(10,9,22,0.92)', border: '1px solid var(--accent)', color: 'var(--text-2)', fontSize: 12, textAlign: 'center', pointerEvents: 'none' }}>
+                  El video se movió: lo devolvimos a su lugar. Para pausar, usa el botón o Esc.
+                </div>
               )}
             </div>
           ) : (
@@ -534,6 +558,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
               <div className="col" style={{ gap: 3 }}>
                 <div className="cond" style={{ fontSize: 15 }}>{hasPlayed.current ? 'Esperando al video' : 'Preparando el video'}</div>
                 <div className="small" style={{ color: '#EADFA8' }}>{hasPlayed.current ? 'Puede haber un anuncio de YouTube. La canción sigue sola cuando el video avance.' : 'Si YouTube pone un anuncio, pasa ahora. Después corren los segundos de inicio y parte la canción.'}</div>
+                {stuck && <Link className="btn btn-s btn-sm" href={`/cancion/${chart.id}`} style={{ alignSelf: 'flex-start', marginTop: 4 }}>El video no parte · volver</Link>}
               </div>
             </div>
           )}

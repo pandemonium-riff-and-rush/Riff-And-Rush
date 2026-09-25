@@ -3,6 +3,7 @@
 import type { Chart, DifficultyId } from '../chart/types';
 import { sb } from '../supabase/client';
 import { getChart } from './store';
+import { logEvent } from './events';
 
 export type Period = 'week' | 'month' | 'year' | 'all';
 
@@ -24,7 +25,7 @@ export async function startPlaySession(chartId: string, diff: DifficultyId): Pro
   const { data: s } = await c.auth.getSession();
   if (!s.session) return null;
   const { data, error } = await c.rpc('start_play', { p_chart: chartId, p_diff: diff });
-  if (error) { console.warn('[riff] no se pudo abrir la sesión de partida:', error.message); return null; }
+  if (error) { logEvent('session_failed', error.message, chartId); return null; }
   return typeof data === 'string' ? data : null;
 }
 
@@ -44,17 +45,17 @@ export async function submitScoreCloud(
   if (!c) return null;
   const { data: s } = await c.auth.getSession();
   if (!s.session) return null;
-  if (!inputLog?.length) { console.warn('[riff] partida sin registro de teclas: no se sube'); return null; }
-  if (!sessionId) { console.warn('[riff] partida sin sesión del servidor: no se sube'); return null; }
+  if (!inputLog?.length) { logEvent('score_failed', 'sin registro de teclas', chartId); return null; }
+  if (!sessionId) { logEvent('score_failed', 'sin sesión del servidor', chartId); return null; }
   const { data, error } = await c.functions.invoke('submit-score', {
     body: {
       chartId, difficulty: diff, sessionId, inputLog, clientScore: Math.round(r.score),
       mods: { precision: modIds.includes('precision'), mirror: modIds.includes('mirror'), dropless: modIds.includes('dropless') }
     }
   });
-  if (error) { console.warn('[riff] no se pudo subir el puntaje:', error.message); return null; }
+  if (error) { logEvent('score_failed', error.message, chartId); return null; }
   const res = data as { ok?: boolean; xp?: number; error?: string; serverScore?: number };
-  if (!res?.ok) { console.warn('[riff] puntaje rechazado:', res?.error); return null; }
+  if (!res?.ok) { logEvent('score_rejected', res?.error ?? 'motivo desconocido', chartId); return null; }
   return { xp: res.xp ?? 0, score: (data as { score: number }).score };
 }
 

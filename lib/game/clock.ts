@@ -14,7 +14,12 @@ export type TamperKind = 'pause' | 'seek';
 export interface GameClock {
   status: ClockStatus;
   onStatus?: (s: ClockStatus) => void;
-  /** Avisa que el video se pausó o saltó sin que el juego lo pidiera. */
+  /**
+   * El video se pausó o saltó sin que el juego lo pidiera y el reloj YA lo arregló solo:
+   * es solo para avisarlo en pantalla, el juego sigue.
+   */
+  onRecover?: (kind: TamperKind) => void;
+  /** Pasó tantas veces seguidas que ya no parece accidente: el juego se pausa de verdad. */
   onTamper?: (kind: TamperKind) => void;
   /** Debe llamarse desde un gesto del usuario (click / tecla) para que el navegador permita audio. */
   start(): void;
@@ -158,7 +163,16 @@ export class YouTubeClock implements GameClock {
   status: ClockStatus = 'loading';
   onStatus?: (s: ClockStatus) => void;
   onError?: (code: number) => void;
+  onRecover?: (kind: TamperKind) => void;
   onTamper?: (kind: TamperKind) => void;
+  /** El video lleva demasiado rato sin partir (anuncio eterno o reproducción bloqueada). */
+  onStuck?: () => void;
+  private stuckSent = false;
+  /**
+   * Momentos en que hubo que reponer el video solo. Un clic sin querer se arregla sin
+   * molestar; si se repite mucho ya no es accidente y ahí sí se pausa el juego.
+   */
+  private recoveries: number[] = [];
   private player: YT.Player | null = null;
   private el: HTMLDivElement | null = null;
   private ready = false;
@@ -184,6 +198,8 @@ export class YouTubeClock implements GameClock {
   private priming = false;
   private primed = false;
   private primeStarted = 0;
+  /** Primer intento de precarga: mide cuánto lleva pegado en total. */
+  private primeFirstTry = 0;
   /** Lo silenciamos nosotros (para devolverle el sonido después). */
   private mutedByUs = false;
 
@@ -252,7 +268,7 @@ export class YouTubeClock implements GameClock {
       this.player?.pauseVideo();
     } else if (state === YT.PlayerState.PAUSED && this.wantPlaying && now > this.guardUntil) {
       // El juego nunca pausa sin bajar wantPlaying: esto lo hizo el jugador en el reproductor
-      this.onTamper?.('pause');
+      this.recover('pause');
     }
   }
 
@@ -295,7 +311,7 @@ export class YouTubeClock implements GameClock {
 
     // Salto en la barra de progreso: solo se revisa cuando el video venía corriendo normal
     if (this.status === 'playing' && now > this.guardUntil && Math.abs(yt - this.lastYt) > 2.5) {
-      this.onTamper?.('seek');
+      this.recover('seek');
       return;
     }
     if (yt !== this.lastYt) {
@@ -325,9 +341,17 @@ export class YouTubeClock implements GameClock {
       p.pauseVideo();
       this.resume(-this.leadIn - this.offsetSec);
     } else if (state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING && performance.now() - this.primeStarted > 1500) {
-      // Quedó detenido (el navegador no dejó reproducir): se vuelve a pedir
-      this.primeStarted = performance.now();
-      p.playVideo();
+      // Quedó detenido (el navegador no dejó reproducir): se vuelve a pedir.
+      // Solo durante los primeros 15 s: después insistir no sirve de nada.
+      if (performance.now() - this.primeFirstTry < 15000) {
+        this.primeStarted = performance.now();
+        p.playVideo();
+      }
+    }
+    // Medio minuto preparando ya no es un anuncio normal: se avisa una vez
+    if (!this.stuckSent && performance.now() - this.primeFirstTry > 30000) {
+      this.stuckSent = true;
+      this.onStuck?.();
     }
   }
 
@@ -338,6 +362,8 @@ export class YouTubeClock implements GameClock {
       const p = this.player;
       this.priming = true;
       this.primeStarted = performance.now();
+      this.primeFirstTry = performance.now();
+      this.stuckSent = false;
       this.wantPlaying = false;
       this.muteForUs();
       p.setPlaybackRate?.(this.rate);
@@ -346,6 +372,22 @@ export class YouTubeClock implements GameClock {
       return;
     }
     this.resume(-this.leadIn - this.offsetSec);
+  }
+
+  /**
+   * Repone el video donde iba el juego, sin cortar la partida. Así un clic sin querer
+   * sobre el reproductor no cuesta nada: el video vuelve a su lugar y las notas siguen.
+   * Solo si pasa 3 veces en 10 s se entrega al juego para que pause de verdad.
+   */
+  private recover(kind: TamperKind) {
+    const now = performance.now();
+    this.recoveries = this.recoveries.filter((x) => now - x < 10000);
+    if (this.recoveries.length >= 3) { this.onTamper?.(kind); return; }
+    this.recoveries.push(now);
+    // time() todavía devuelve dónde iba el juego: ni lastYt ni el salto se han aplicado
+    const back = this.time();
+    this.onRecover?.(kind);
+    this.resume(back);
   }
 
   /** Estimación del tiempo del video a partir de la última lectura. */

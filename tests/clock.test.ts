@@ -31,7 +31,7 @@ function makeClock(adSec: number, lagSec: number, leadIn = 3) {
   Object.assign(clock, {
     status: 'ready', lastYt: 0, lastPerf: 0, lastAdvance: 0, wantPlaying: false, pausedAt: 0, mono: -Infinity,
     ready: true, destroyed: false, pendingStart: false, prerollUntil: 0, rate: 1, guardUntil: 0,
-    mutedByUs: false, priming: false, primed: false, primeStarted: 0, handoff: null, corr: 0, lastCall: 0,
+    mutedByUs: false, priming: false, primed: false, primeStarted: 0, handoff: null, corr: 0, lastCall: 0, recoveries: [],
     offsetSec: 0, leadIn
   });
   const player = new FakePlayer(adSec, lagSec, (s) => (clock as unknown as { onState(s: number): void }).onState(s));
@@ -130,5 +130,66 @@ describe('YouTubeClock: arranque suave', () => {
     for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThanOrEqual(times[i - 1] - 1e-9);
     expect(times[0]).toBeGreaterThanOrEqual(from - 1e-6);
     expect(Math.abs(times.at(-1)! - sim.player.t)).toBeLessThan(0.03);
+  });
+});
+
+describe('YouTubeClock: clics sin querer en el reproductor', () => {
+  /** Deja el reloj corriendo la canción, ya pasado el margen de inicio. */
+  function corriendo() {
+    const sim = makeClock(0, 0.05, 1);
+    sim.clock.start();
+    run(sim, 3);
+    return sim;
+  }
+
+  it('si el jugador pausa el video por error, se repone solo y la partida no se corta', () => {
+    const sim = corriendo();
+    const recuperados: string[] = [];
+    let pausasDelJuego = 0;
+    sim.clock.onRecover = (k) => recuperados.push(k);
+    sim.clock.onTamper = () => pausasDelJuego++;
+
+    const antes = sim.clock.time();
+    sim.player.pauseVideo();           // el clic sobre el video
+    const despues = run(sim, 2);
+
+    expect(recuperados).toEqual(['pause']);
+    expect(pausasDelJuego).toBe(0);                       // el juego NO se pausó
+    expect(sim.player.state).toBe(S.PLAYING);             // el video volvió a correr
+    expect(despues.times[despues.times.length - 1]).toBeGreaterThan(antes); // el tiempo siguió
+  });
+
+  it('el tiempo del juego no retrocede ni se dispara al reponer', () => {
+    const sim = corriendo();
+    sim.player.pauseVideo();
+    const { times } = run(sim, 2);
+    let saltoAtras = 0;
+    for (let i = 1; i < times.length; i++) if (times[i] < times[i - 1] - 0.001) saltoAtras++;
+    expect(saltoAtras).toBe(0);
+  });
+
+  it('si alguien insiste, deja de reponer y ahí sí pausa el juego', () => {
+    const sim = corriendo();
+    let pausasDelJuego = 0;
+    const recuperados: string[] = [];
+    sim.clock.onRecover = (k) => recuperados.push(k);
+    sim.clock.onTamper = () => pausasDelJuego++;
+
+    for (let i = 0; i < 4; i++) { sim.player.pauseVideo(); run(sim, 1); }
+
+    expect(recuperados.length).toBe(3);   // tres perdonadas
+    expect(pausasDelJuego).toBe(1);       // la cuarta corta la partida
+  });
+
+  it('un salto en la barra también se repone solo', () => {
+    const sim = corriendo();
+    const recuperados: string[] = [];
+    sim.clock.onRecover = (k) => recuperados.push(k);
+    const antes = sim.clock.time();
+    sim.player.t += 30;                    // alguien saltó 30 s adelante
+    run(sim, 2);
+    expect(recuperados).toEqual(['seek']);
+    // El juego siguió desde donde iba, no desde el salto
+    expect(sim.clock.time()).toBeLessThan(antes + 5);
   });
 });

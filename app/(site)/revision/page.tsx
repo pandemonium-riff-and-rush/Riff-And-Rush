@@ -8,19 +8,25 @@ import { DEMO_CHARTS } from '@/lib/data/demo';
 import { Cover, DiffMinis } from '@/components/Cover';
 import { formatTime, playEnd } from '@/lib/chart/types';
 import { checkChart } from '@/lib/chart/checks';
+import { EVENT_LABEL, fetchEvents, fetchSuspectCharts, type EventRow, type SuspectRow } from '@/lib/data/events';
 
 /** Panel de revisión manual: reportes de la comunidad y cola de charts por verificar. Solo admins. */
 export default function Review() {
   const { loading, profile } = useAuth();
-  const [tab, setTab] = useState<'reportes' | 'cola'>('reportes');
+  const [tab, setTab] = useState<'reportes' | 'cola' | 'salud'>('reportes');
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [pending, setPending] = useState<CloudChartRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Salud del juego: errores que le pasan a la gente y charts que parecen desfasados. */
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [suspect, setSuspect] = useState<SuspectRow[]>([]);
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
     setReports(await fetchReports('abierto'));
     setPending(await fetchPendingCharts());
+    setEvents(await fetchEvents(168));
+    setSuspect(await fetchSuspectCharts());
   }, []);
   useEffect(() => { if (profile?.is_admin) load(); }, [profile?.is_admin, load]);
 
@@ -51,6 +57,7 @@ export default function Review() {
         <div className="seg" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'reportes'} onClick={() => setTab('reportes')}>Reportes ({grouped.length})</button>
           <button type="button" role="tab" aria-selected={tab === 'cola'} onClick={() => setTab('cola')}>Por verificar ({pending.length})</button>
+          <button type="button" role="tab" aria-selected={tab === 'salud'} onClick={() => setTab('salud')}>Salud ({events.length + suspect.length})</button>
         </div>
       </div>
       <section className="panel panel-pad row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -109,6 +116,45 @@ export default function Review() {
           </section>
         );
       }) : <div className="panel panel-pad muted">No hay charts esperando revisión.</div>)}
+
+      {tab === 'salud' && (
+        <>
+          <section className="panel panel-pad col" style={{ gap: 10 }}>
+            <div className="col" style={{ gap: 2 }}>
+              <h2 style={{ fontSize: 17, margin: 0 }}>Charts que parecen desfasados</h2>
+              <span className="small muted">
+                Detectados solos: varios jugadores distintos y casi nadie pasa del 50 % de precisión.
+                Si fuera solo difícil, los buenos igual sacarían buena precisión.
+              </span>
+            </div>
+            {suspect.length ? suspect.map((r) => (
+              <div key={r.chart_id + r.difficulty} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
+                <span className="mono grow" style={{ minWidth: 180 }}>{r.chart_id} · {r.difficulty}</span>
+                <span style={{ color: 'var(--hot-soft)' }}>mediana {Math.round(r.median_acc * 100)} %</span>
+                <span className="muted">mejor {Math.round(r.best_acc * 100)} %</span>
+                <span className="muted">{r.players} jugadores · {r.plays} partidas</span>
+                <Link className="btn btn-s btn-sm" href={`/jugar/${r.chart_id}?d=${r.difficulty}&auto=1`}>Ver demo</Link>
+              </div>
+            )) : <div className="muted small">Ningún chart sospechoso. 🎸</div>}
+          </section>
+
+          <section className="panel panel-pad col" style={{ gap: 10 }}>
+            <div className="col" style={{ gap: 2 }}>
+              <h2 style={{ fontSize: 17, margin: 0 }}>Errores de la última semana</h2>
+              <span className="small muted">Lo que les pasó a los jugadores de verdad, agrupado por motivo.</span>
+            </div>
+            {events.length ? events.map((e, i) => (
+              <div key={i} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
+                <span className="chip" style={{ color: 'var(--gold)', borderColor: 'rgba(245,183,0,0.5)', whiteSpace: 'nowrap' }}>{EVENT_LABEL[e.kind] ?? e.kind}</span>
+                <span className="grow" style={{ minWidth: 160 }}>{e.detail || <span className="muted">sin detalle</span>}</span>
+                {e.chart_id && <span className="mono muted">{e.chart_id}</span>}
+                <span style={{ fontWeight: 700 }}>×{e.veces}</span>
+                <span className="muted mono">{new Date(e.ultima).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            )) : <div className="muted small">Ningún error registrado. Puede ser buena señal o que todavía no juega nadie.</div>}
+          </section>
+        </>
+      )}
     </main>
   );
 }
