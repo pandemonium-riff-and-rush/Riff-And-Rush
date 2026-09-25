@@ -9,17 +9,20 @@ import { Cover, DiffMinis } from '@/components/Cover';
 import { formatTime, playEnd } from '@/lib/chart/types';
 import { checkChart } from '@/lib/chart/checks';
 import { EVENT_LABEL, fetchEvents, fetchSuspectCharts, type EventRow, type SuspectRow } from '@/lib/data/events';
+import { fetchFeedback, markFeedback, type FeedbackRow } from '@/lib/data/feedback';
 
 /** Panel de revisión manual: reportes de la comunidad y cola de charts por verificar. Solo admins. */
 export default function Review() {
   const { loading, profile } = useAuth();
-  const [tab, setTab] = useState<'reportes' | 'cola' | 'salud'>('reportes');
+  const [tab, setTab] = useState<'reportes' | 'cola' | 'salud' | 'opiniones'>('reportes');
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [pending, setPending] = useState<CloudChartRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   /** Salud del juego: errores que le pasan a la gente y charts que parecen desfasados. */
   const [events, setEvents] = useState<EventRow[]>([]);
   const [suspect, setSuspect] = useState<SuspectRow[]>([]);
+  /** Lo que escribió la gente con el botón de opinar. */
+  const [opiniones, setOpiniones] = useState<FeedbackRow[]>([]);
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
@@ -27,6 +30,7 @@ export default function Review() {
     setPending(await fetchPendingCharts());
     setEvents(await fetchEvents(168));
     setSuspect(await fetchSuspectCharts());
+    setOpiniones(await fetchFeedback());
   }, []);
   useEffect(() => { if (profile?.is_admin) load(); }, [profile?.is_admin, load]);
 
@@ -58,6 +62,7 @@ export default function Review() {
           <button type="button" role="tab" aria-selected={tab === 'reportes'} onClick={() => setTab('reportes')}>Reportes ({grouped.length})</button>
           <button type="button" role="tab" aria-selected={tab === 'cola'} onClick={() => setTab('cola')}>Por verificar ({pending.length})</button>
           <button type="button" role="tab" aria-selected={tab === 'salud'} onClick={() => setTab('salud')}>Salud ({events.length + suspect.length})</button>
+          <button type="button" role="tab" aria-selected={tab === 'opiniones'} onClick={() => setTab('opiniones')}>Opiniones ({opiniones.filter((o) => !o.leido).length})</button>
         </div>
       </div>
       <section className="panel panel-pad row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -154,6 +159,30 @@ export default function Review() {
             )) : <div className="muted small">Ningún error registrado. Puede ser buena señal o que todavía no juega nadie.</div>}
           </section>
         </>
+      )}
+
+      {tab === 'opiniones' && (
+        <section className="panel panel-pad col" style={{ gap: 10 }}>
+          <div className="col" style={{ gap: 2 }}>
+            <h2 style={{ fontSize: 17, margin: 0 }}>Lo que escribió la gente</h2>
+            <span className="small muted">Del botón &quot;Opinar&quot;. Marca como visto lo que ya revisaste para no leerlo dos veces.</span>
+          </div>
+          {opiniones.length ? opiniones.map((o) => (
+            <div key={o.id} className="col" style={{ gap: 6, padding: '10px 12px', borderRadius: 4, background: o.leido ? 'rgba(255,255,255,0.02)' : 'rgba(168,85,247,0.08)', border: `1px solid ${o.leido ? 'transparent' : 'rgba(168,85,247,0.35)'}`, opacity: o.leido ? 0.65 : 1 }}>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{o.texto}</p>
+              <div className="row small muted" style={{ gap: 10, flexWrap: 'wrap' }}>
+                <span>{o.autor || 'sin cuenta'}</span>
+                {o.pagina && <span className="mono">{o.pagina}</span>}
+                {o.contacto && <span style={{ color: 'var(--accent-link)' }}>{o.contacto}</span>}
+                <span className="grow mono">{new Date(o.at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                <button type="button" className="btn btn-g btn-xs" disabled={busy === `fb${o.id}`}
+                  onClick={() => act(`fb${o.id}`, () => markFeedback(o.id, !o.leido), '')}>
+                  {o.leido ? 'Marcar sin ver' : 'Marcar visto'}
+                </button>
+              </div>
+            </div>
+          )) : <div className="muted small">Todavía nadie ha escrito nada.</div>}
+        </section>
       )}
     </main>
   );

@@ -9,8 +9,6 @@ npm install
 npm run dev
 ```
 
-Pruebas (motor, replay del servidor, parser, dificultades): `npm test`.
-
 Abre http://localhost:3000.
 
 ## Qué incluye esta versión (v0.1)
@@ -28,7 +26,7 @@ Abre http://localhost:3000.
 | Calibración de latencia | Lista |
 | Cuentas, charts compartidos y rankings reales | Pendiente (backend) |
 
-Sin `.env.local`, los datos (charts propios, récords y ajustes) se guardan en el `localStorage` del navegador (modo invitado).
+Los datos (charts propios, récords y ajustes) se guardan en `localStorage` del navegador mientras no hay backend.
 
 ## Cuentas y rankings (Supabase)
 
@@ -37,12 +35,6 @@ Sin `.env.local`, los datos (charts propios, récords y ajustes) se guardan en e
 3. En *Authentication → URL Configuration*: **Site URL** = `http://localhost:3000` y agrega `http://localhost:3000/**` en **Redirect URLs** (después, lo mismo con tu dominio real).
 4. Correo y contraseña funcionan de inmediato. Para **Google** o **Discord**: *Authentication → Sign In / Providers*, actívalos y pega el Client ID/Secret de cada uno (la callback que piden es la que te muestra Supabase ahí mismo).
 5. `npm install` (se agregó `@supabase/supabase-js`) y `npm run dev`.
-6. Corre también, en orden, `0002_revision.sql`, `0003_antitrampa.sql`, `0004_sesiones_y_ranking.sql` y `0005_datos_reales.sql`.
-7. Despliega la validación de puntajes: `supabase functions deploy submit-score` (usa `supabase/functions/_shared/replay.ts`).
-
-Cómo se valida una partida: al empezar, el juego pide una **sesión de partida** (`start_play`). Al terminar manda el registro de teclas y el id de la sesión a `submit-score`, que exige que la sesión sea tuya, no se haya usado y que haya pasado al menos el 90 % de lo que dura la canción. Luego rehace la partida y guarda el puntaje del servidor. Las pausas quedan marcadas en el registro (código 3), así que una partida con anuncios o pausas sí se puede subir. El registro de teclas y quién es admin ya no son públicos. El ranking global suma hasta 1.000 × peso de dificultad por canción según tu precisión, así las canciones largas no pesan más.
-
-Pendiente: las técnicas (barrido, ligado, pull-off, armónico, acordes) están en fase de prueba y solo existen en el cliente. Hasta llevarlas a `_shared/replay.ts`, los charts que las usen pueden ser rechazados por el servidor.
 
 Sin `.env.local` el juego sigue funcionando en modo invitado (todo en el navegador).
 
@@ -69,10 +61,35 @@ lib/data/             charts de demo, persistencia local y datos de ejemplo
 
 ## Reglas de YouTube que respeta el diseño
 
-- El reproductor se ve siempre, mide 400×225 (YouTube pide un mínimo de 200×200) y no tiene nada encima.
+- El reproductor se ve siempre, mide 560×315 y no tiene nada encima.
 - No se descarga ni se separa el audio del video.
 - No se bloquean los anuncios: el juego espera a que el video avance.
 - No se cobra por reproducir videos. Los pagos son por donación o por quitar nuestros anuncios.
+
+## Publicar (Vercel)
+
+Vercel corre Next.js sin configurar nada. El repo ya está listo; falta tu cuenta.
+
+1. Sube el repo a GitHub (`riff-and-rush`, privado o público, da lo mismo).
+2. Entra a vercel.com con la cuenta de GitHub → **Add New… → Project** → elige el repo → **Deploy**.
+3. En **Settings → Environment Variables** agrega, para *Production*, *Preview* y *Development*:
+
+   | Nombre | Valor |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | `https://kudejksuvlrfwaspnwkr.supabase.co` |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | la publishable key (`sb_publishable_…`) |
+
+   Nunca la `service_role` / secret: esa da acceso total a la base saltándose las reglas RLS.
+4. Vuelve a desplegar (**Deployments → … → Redeploy**) para que el build tome las variables.
+
+Después del primer despliegue, en Supabase → **Authentication → URL Configuration**:
+
+- **Site URL**: la dirección de Vercel (`https://loquesea.vercel.app`).
+- **Redirect URLs**: esa misma dirección y `https://loquesea.vercel.app/**`.
+
+Sin eso, los correos de confirmación y los links de entrar apuntan a `localhost` y nadie puede entrar.
+
+Cada `git push` a la rama principal vuelve a desplegar solo.
 
 ## Próximos pasos sugeridos
 

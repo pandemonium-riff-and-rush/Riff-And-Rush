@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Nav from '@/components/Nav';
+import FeedbackButton from '@/components/FeedbackButton';
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <Link href="/privacidad" className="muted">Privacidad</Link>
         <Link href="/reportar-contenido" className="muted">Reportar contenido</Link>
       </footer>
+      <FeedbackButton />
     </>
   );
 }

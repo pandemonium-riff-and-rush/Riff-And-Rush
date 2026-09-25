@@ -180,12 +180,18 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .table-row { display: grid; align-items: center; column-gap: 16px; padding: 0 20px; height: 52px; border-bottom: 1px solid var(--border); }
 
 @media (max-width: 900px) {
-  .hero-hw { opacity: .3; }
+  .hero-hw { opacity: .3; overflow: hidden; }
+  /* Nada de arrastrar la página de lado en un teléfono (clip, no hidden: el sticky sigue vivo) */
+  main { overflow-x: clip; }
   .page { padding: 24px 16px 48px; }
   .lib-track { padding-left: 16px; padding-right: 16px; }
   .lib-hero { height: 400px; }
   .nav { padding: 0 16px; gap: 16px; }
   .nav-user-name { display: none; }
+  /* Sin esto la barra mide 806 px y TODA la web se arrastra de lado en un teléfono */
+  .nav-links { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { padding: 0 10px; font-size: 15px; white-space: nowrap; }
   .grid12 > * { grid-column: 1 / -1 !important; }
 }
 
@@ -219,7 +225,7 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 @keyframes heroZoom { from { transform: scale(1.12); opacity: .4; } to { transform: scale(1); opacity: 1; } }
 .lib-hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,9,22,.97) 0%, rgba(10,9,22,.85) 38%, rgba(10,9,22,.2) 75%), linear-gradient(0deg, var(--bg-base) 0%, rgba(10,9,22,0) 40%); }
 .lib-hero-body { position: relative; height: 100%; justify-content: flex-end; padding-bottom: 44px; }
-.lib-bar { position: sticky; top: 0; z-index: 20; background: rgba(10,9,22,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.lib-bar { position: sticky; top: 72px; z-index: 20; background: rgba(10,9,22,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
 .lib-chips { gap: 8px; flex-wrap: wrap; }
 .lib-chip { height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--text); font: 600 13px var(--font-body); cursor: pointer; white-space: nowrap; transition: background .15s; }
 .lib-chip:hover { background: var(--bg-raised); }
@@ -240,3 +246,11 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 /* Páginas legales */
 .legal ul { margin: 0; padding-left: 20px; color: var(--text-3); line-height: 1.65; }
 .legal li { margin-bottom: 6px; }
+
+/* Botón de opinión (beta) */
+.fb-fab { position: fixed; right: 20px; bottom: 20px; z-index: 40; gap: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+.fb-panel { position: fixed; right: 20px; bottom: 68px; z-index: 41; width: min(360px, calc(100vw - 40px)); padding: 16px; box-shadow: 0 16px 44px rgba(0,0,0,.6); }
+.fb-panel .input { font-size: 14px; }
+.fb-ok { margin: 0; padding: 12px 4px; text-align: center; color: var(--ok); font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .04em; font-size: 18px; }
+@media (max-width: 560px) { .nav { gap: 10px; } .nav-logo .disp { display: none; } }
+@media (max-width: 720px) { .fb-fab { right: 12px; bottom: 12px; } .fb-panel { right: 12px; bottom: 60px; } }
