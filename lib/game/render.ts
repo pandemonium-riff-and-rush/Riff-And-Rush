@@ -4,28 +4,58 @@ import type { Fx } from './fx';
 import type { TempoPoint } from '../chart/types';
 import { bpmAt, gridBetween } from '../chart/tempo';
 
-/** Geometría de la autopista (en px CSS del canvas). */
+/** Geometría de escritorio (px CSS del canvas). El editor, la portada y el laboratorio la usan tal cual. */
 export const HW = 760;
 export const HH = 560;
-const TOPW = 330;
-const TOP = 10;
 export const HIT = 488;
+const TOP = 10;
 
-/** Posición x del receptor de un carril (para ubicar efectos). */
-export const laneX = (lane: number, n: number) => xOf(HIT, lane, n);
+/**
+ * Geometría de una autopista: ancho y alto del canvas, ancho arriba (fondo) y altura de la línea de golpe.
+ * En el teléfono vertical la autopista es más angosta y alta, así que se pasa una a medida.
+ */
+export interface Geo { w: number; h: number; topW: number; hit: number }
+export const DESKTOP_GEO: Geo = { w: HW, h: HH, topW: 330, hit: HIT };
 
-const W = (y: number) => TOPW + (HW - TOPW) * (y / HH);
-const xOf = (y: number, lane: number, n: number) => { const w = W(y); return (HW - w) / 2 + (w * (lane + 0.5)) / n; };
+/** Autopista para un canvas de w×h (teléfono): fondo angosto y línea de golpe cerca del borde de abajo. */
+export function geoFor(w: number, h: number): Geo {
+  const hit = Math.round(h - Math.min(80, Math.max(44, h * 0.13)));
+  return { w, h, topW: Math.round(w * 0.4), hit };
+}
+
+// Geometría vigente del dibujo: se fija al comienzo de cada drawHighway
+let gw = HW, gh = HH, gtop = 330, ghit = HIT, HZ = 0, K = 0;
+/** Modo liviano: sin sombras difusas (shadowBlur es lo más caro de dibujar en un teléfono). */
+let LOW = false;
 /*
  * Perspectiva real: el ancho de la autopista es lineal en y y se anula en el horizonte (HZ).
  * Para un plano visto por una cámara, la distancia en pantalla al horizonte es proporcional a 1/profundidad,
- * así que y(p) = HZ + (HIT − HZ) / (1 + K·p). Con esto el espaciado de las notas calza con su tamaño
- * (antes se usaba una curva inventada y las notas "aceleraban" raro).
+ * así que y(p) = HZ + (HIT − HZ) / (1 + K·p). Con esto el espaciado de las notas calza con su tamaño.
  */
-const HZ = -(TOPW * HH) / (HW - TOPW);
-const K = (HIT - HZ) / (TOP - HZ) - 1;
+function useGeo(g: Geo) {
+  gw = g.w; gh = g.h; gtop = g.topW; ghit = g.hit;
+  HZ = -(gtop * gh) / (gw - gtop);
+  K = (ghit - HZ) / (TOP - HZ) - 1;
+}
+useGeo(DESKTOP_GEO);
+
+const W = (y: number) => gtop + (gw - gtop) * (y / gh);
+const xOf = (y: number, lane: number, n: number) => { const w = W(y); return (gw - w) / 2 + (w * (lane + 0.5)) / n; };
 /** p = 0 en la línea de golpe, 1 arriba del todo. */
-const yOf = (p: number) => HZ + (HIT - HZ) / (1 + K * Math.max(p, -0.9 / K));
+const yOf = (p: number) => HZ + (ghit - HZ) / (1 + K * Math.max(p, -0.9 / K));
+
+/** Posición x del receptor de un carril (para ubicar efectos). */
+export function laneX(lane: number, n: number, g: Geo = DESKTOP_GEO) {
+  const w = g.topW + (g.w - g.topW) * (g.hit / g.h);
+  return (g.w - w) / 2 + (w * (lane + 0.5)) / n;
+}
+
+/** Primera nota que todavía puede verse (las notas vienen ordenadas por tiempo). */
+function firstVisible(notes: LiveNote[], t: number) {
+  let lo = 0, hi = notes.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m].t < t) lo = m + 1; else hi = m; }
+  return lo;
+}
 
 function shade(hex: string, f: number) {
   const v = parseInt(hex.slice(1), 16);
@@ -55,6 +85,10 @@ export interface RenderState {
   fx?: Fx;
   /** Mapa de tempo normalizado (si la canción cambia de BPM). */
   tempo?: TempoPoint[];
+  /** Geometría a medida (teléfono). Sin esto, la de escritorio. */
+  geo?: Geo;
+  /** Efectos livianos: sin sombras difusas ni luces en los bordes. */
+  low?: boolean;
 }
 
 const MULT_EDGE: Record<number, string> = { 1: '', 2: '#3FA9FF', 3: '#3DDC84', 4: '#FF4D6D' };
@@ -67,6 +101,8 @@ const THEMES: Record<string, { top: string; bottom: string; edge: string }> = {
 };
 
 export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
+  useGeo(s.geo ?? DESKTOP_GEO);
+  LOW = !!s.low;
   const n = s.lanes;
   const th = THEMES[s.theme] ?? THEMES.estadio;
   const baseMult = s.boosting ? Math.max(1, Math.round((s.mult ?? 2) / 2)) : (s.mult ?? 1);
@@ -80,19 +116,19 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
   const fx = s.fx;
   fx?.step();
 
-  ctx.clearRect(0, 0, HW, HH);
+  ctx.clearRect(0, 0, gw, gh);
   ctx.save();
   if (fx && fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake * 8, (Math.random() - 0.5) * fx.shake * 5);
 
   // ---------- Fondo de la autopista ----------
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo((HW - TOPW) / 2, 0);
-  ctx.lineTo((HW + TOPW) / 2, 0);
-  ctx.lineTo(HW, HH);
-  ctx.lineTo(0, HH);
+  ctx.moveTo((gw - gtop) / 2, 0);
+  ctx.lineTo((gw + gtop) / 2, 0);
+  ctx.lineTo(gw, gh);
+  ctx.lineTo(0, gh);
   ctx.closePath();
-  const bg = ctx.createLinearGradient(0, 0, 0, HH);
+  const bg = ctx.createLinearGradient(0, 0, 0, gh);
   bg.addColorStop(0, th.top);
   bg.addColorStop(1, s.boosting ? '#3A2A08' : th.bottom);
   ctx.fillStyle = bg;
@@ -101,13 +137,13 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
 
   // Franjas por carril (más claras si el carril está apretado)
   for (let i = 0; i < n; i++) {
-    const xt0 = (HW - TOPW) / 2 + (TOPW * i) / n, xt1 = (HW - TOPW) / 2 + (TOPW * (i + 1)) / n;
-    const xb0 = (HW * i) / n, xb1 = (HW * (i + 1)) / n;
+    const xt0 = (gw - gtop) / 2 + (gtop * i) / n, xt1 = (gw - gtop) / 2 + (gtop * (i + 1)) / n;
+    const xb0 = (gw * i) / n, xb1 = (gw * (i + 1)) / n;
     const col = LANE_COLORS[i];
     ctx.beginPath();
-    ctx.moveTo(xt0, 0); ctx.lineTo(xt1, 0); ctx.lineTo(xb1, HH); ctx.lineTo(xb0, HH); ctx.closePath();
+    ctx.moveTo(xt0, 0); ctx.lineTo(xt1, 0); ctx.lineTo(xb1, gh); ctx.lineTo(xb0, gh); ctx.closePath();
     if (s.pressed[i]) {
-      const g = ctx.createLinearGradient(0, HIT, 0, HIT - 360);
+      const g = ctx.createLinearGradient(0, ghit, 0, ghit - 360);
       g.addColorStop(0, rgba(col, 0.32));
       g.addColorStop(1, rgba(col, 0));
       ctx.fillStyle = g;
@@ -122,7 +158,7 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const w = W(y);
     const strong = g.strong;
     ctx.fillStyle = strong ? 'rgba(210,200,255,0.42)' : 'rgba(200,190,255,0.13)';
-    ctx.fillRect((HW - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
+    ctx.fillRect((gw - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
   }
 
   // Cuerdas por carril
@@ -130,53 +166,55 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     ctx.strokeStyle = rgba(LANE_COLORS[i], s.pressed[i] ? 0.95 : 0.4);
     ctx.lineWidth = s.pressed[i] ? 3 : 1.5;
     ctx.beginPath();
-    ctx.moveTo((HW - TOPW) / 2 + (TOPW * (i + 0.5)) / n, 0);
-    ctx.lineTo((HW * (i + 0.5)) / n, HH);
+    ctx.moveTo((gw - gtop) / 2 + (gtop * (i + 0.5)) / n, 0);
+    ctx.lineTo((gw * (i + 0.5)) / n, gh);
     ctx.stroke();
   }
 
   // Neblina arriba: da profundidad y esconde la aparición de las notas
-  const fog = ctx.createLinearGradient(0, 0, 0, HH * 0.32);
+  const fog = ctx.createLinearGradient(0, 0, 0, gh * 0.32);
   fog.addColorStop(0, 'rgba(5,4,20,0.95)');
   fog.addColorStop(1, 'rgba(5,4,20,0)');
   ctx.fillStyle = fog;
-  ctx.fillRect(0, 0, HW, HH * 0.32);
+  ctx.fillRect(0, 0, gw, gh * 0.32);
   ctx.restore();
 
   // ---------- Bordes con neón (laten con el ritmo) ----------
   ctx.save();
   ctx.shadowColor = edge;
-  ctx.shadowBlur = 14 + pulse * 22 + (baseMult >= 4 ? 10 : 0);
+  ctx.shadowBlur = LOW ? 0 : 14 + pulse * 22 + (baseMult >= 4 ? 10 : 0);
   ctx.strokeStyle = edge;
   ctx.lineWidth = 4 + pulse * 2;
   ctx.beginPath();
-  ctx.moveTo((HW - TOPW) / 2, 0); ctx.lineTo(0, HH);
-  ctx.moveTo((HW + TOPW) / 2, 0); ctx.lineTo(HW, HH);
+  ctx.moveTo((gw - gtop) / 2, 0); ctx.lineTo(0, gh);
+  ctx.moveTo((gw + gtop) / 2, 0); ctx.lineTo(gw, gh);
   ctx.stroke();
   ctx.restore();
 
-  // Luces que corren por los bordes (cada medio tiempo)
+  // Luces que corren por los bordes (cada medio tiempo). En modo liviano no van.
+  if (!LOW) {
   ctx.save();
   ctx.fillStyle = edge;
   ctx.shadowColor = edge;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = LOW ? 0 : 10;
   for (const g of grid) {
     if (g.t < s.t) continue;
     const k = Math.round(g.index * 2);
     const y = yOf((g.t - s.t) / s.window);
-    if (y < HH * 0.2) continue;
+    if (y < gh * 0.2) continue;
     const w = W(y);
-    const r = 1.5 + (y / HH) * 3.5;
-    ctx.globalAlpha = Math.min(1, (y / HH) * 1.4) * (k % 2 ? 0.55 : 1);
-    ctx.beginPath(); ctx.arc((HW - w) / 2 + 3, y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc((HW + w) / 2 - 3, y, r, 0, Math.PI * 2); ctx.fill();
+    const r = 1.5 + (y / gh) * 3.5;
+    ctx.globalAlpha = Math.min(1, (y / gh) * 1.4) * (k % 2 ? 0.55 : 1);
+    ctx.beginPath(); ctx.arc((gw - w) / 2 + 3, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc((gw + w) / 2 - 3, y, r, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
+  }
 
   // ---------- Línea de golpe ----------
   {
-    const w = W(HIT);
-    const x0 = (HW - w) / 2;
+    const w = W(ghit);
+    const x0 = (gw - w) / 2;
     ctx.save();
     const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
     g.addColorStop(0, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
@@ -184,15 +222,17 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     g.addColorStop(1, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
     ctx.fillStyle = g;
     ctx.shadowColor = edge;
-    ctx.shadowBlur = 12 + pulse * 14;
-    ctx.fillRect(x0, HIT - 2, w, 4);
+    ctx.shadowBlur = LOW ? 0 : 12 + pulse * 14;
+    ctx.fillRect(x0, ghit - 2, w, 4);
     ctx.restore();
   }
 
   // ---------- Notas largas y notas ----------
   if (s.showNotes) {
     const visible: LiveNote[] = [];
-    for (const nt of s.notes) {
+    // Se parte cerca del presente (no desde la primera nota de la canción en cada cuadro)
+    for (let i = firstVisible(s.notes, s.t - 12); i < s.notes.length; i++) {
+      const nt = s.notes[i];
       if (nt.t - s.t > s.window) break;
       const dt = nt.t - s.t;
       if (nt.len > 0 && nt.state !== 'miss' && dt + nt.len >= 0) {
@@ -209,26 +249,26 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
   }
 
   // ---------- Receptores ----------
-  const lwHit = W(HIT) / n;
+  const lwHit = W(ghit) / n;
   const size = Math.min(104, lwHit * 0.8);
   const sh = size * 0.5;
   const nowSec = performance.now() / 1000;
   for (let i = 0; i < n; i++) {
-    const x = xOf(HIT, i, n);
+    const x = xOf(ghit, i, n);
     const col = LANE_COLORS[i];
     const on = s.pressed[i];
     const flash = s.t - s.flashAt[i];
     const missK = fx ? Math.max(0, 1 - (nowSec - fx.missAt[i]) / 0.25) : 0;
-    const y = HIT + (on ? 3 : 0);
+    const y = ghit + (on ? 3 : 0);
     ctx.save();
     ctx.fillStyle = shade(col, 0.3);
-    ctx.beginPath(); ctx.ellipse(x, HIT + sh * 0.22, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, ghit + sh * 0.22, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
     const g = ctx.createRadialGradient(x, y - sh * 0.15, 2, x, y, size / 2);
     if (on) { g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, shade(col, 1.4)); g.addColorStop(1, col); }
     else { g.addColorStop(0, '#2A2448'); g.addColorStop(1, '#0A0916'); }
     ctx.fillStyle = g;
     ctx.shadowColor = missK > 0 ? '#FF2D4D' : col;
-    ctx.shadowBlur = on ? 34 : 10 + missK * 20;
+    ctx.shadowBlur = LOW ? 0 : on ? 34 : 10 + missK * 20;
     ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.lineWidth = size * 0.1;
@@ -242,13 +282,13 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
 
     if (flash >= 0 && flash < 0.18) {
       const k = 1 - flash / 0.18;
-      const fg = ctx.createRadialGradient(x, HIT - size * 0.2, 2, x, HIT - size * 0.45, size * 0.7);
+      const fg = ctx.createRadialGradient(x, ghit - size * 0.2, 2, x, ghit - size * 0.45, size * 0.7);
       fg.addColorStop(0, `rgba(255,255,255,${0.95 * k})`);
       fg.addColorStop(0.3, `rgba(255,210,63,${0.8 * k})`);
       fg.addColorStop(0.65, rgba(col, 0.5 * k));
       fg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = fg;
-      ctx.beginPath(); ctx.ellipse(x, HIT - size * 0.4, size * 0.42, size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, ghit - size * 0.4, size * 0.42, size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -282,7 +322,7 @@ function drawLinks(ctx: CanvasRenderingContext2D, visible: LiveNote[], s: Render
     ctx.strokeStyle = rgba(col, tech === 'sweep' ? 0.75 : 0.5);
     ctx.lineWidth = tech === 'sweep' ? Math.max(2, (W(y1) / n) * 0.16) : Math.max(1.5, (W(y1) / n) * 0.07);
     ctx.shadowColor = col;
-    ctx.shadowBlur = tech === 'sweep' ? 12 : 0;
+    ctx.shadowBlur = LOW ? 0 : tech === 'sweep' ? 12 : 0;
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
@@ -293,7 +333,7 @@ function drawLinks(ctx: CanvasRenderingContext2D, visible: LiveNote[], s: Render
 
 function drawSustain(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n: number, d1: number, d2: number) {
   const col = s.boosting ? '#FFE27A' : LANE_COLORS[nt.lane];
-  const steps = 18;
+  const steps = LOW ? 8 : 18;
   const pts: [number, number, number][] = [];
   for (let k = 0; k <= steps; k++) {
     const d = d1 + ((d2 - d1) * k) / steps;
@@ -305,7 +345,7 @@ function drawSustain(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState
   }
   ctx.save();
   ctx.shadowColor = col;
-  ctx.shadowBlur = nt.holding ? 22 : 8;
+  ctx.shadowBlur = LOW ? 0 : nt.holding ? 22 : 8;
   ctx.fillStyle = rgba(col, nt.holding ? 1 : 0.75);
   ctx.beginPath();
   pts.forEach(([x, y, w], k) => (k ? ctx.lineTo(x - w / 2, y) : ctx.moveTo(x - w / 2, y)));
@@ -320,7 +360,7 @@ function drawSustain(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState
     for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k][0] + pts[k][2] / 6, pts[k][1]);
     ctx.closePath();
     ctx.fill();
-    s.fx?.sustain(xOf(HIT, nt.lane, n), HIT - 6, LANE_COLORS[nt.lane]);
+    s.fx?.sustain(xOf(ghit, nt.lane, n), ghit - 6, LANE_COLORS[nt.lane]);
   }
   ctx.restore();
 }
@@ -350,7 +390,7 @@ function drawGem(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n:
       ctx.lineWidth = Math.max(2, h * 0.5);
       ctx.lineCap = 'round';
       ctx.shadowColor = '#FFD23F';
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = LOW ? 0 : 16;
       ctx.beginPath();
       ctx.moveTo(Math.min(...xs), y);
       ctx.lineTo(Math.max(...xs), y);
@@ -376,7 +416,7 @@ function drawGem(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n:
   g.addColorStop(1, shade(col, 0.5));
   ctx.fillStyle = g;
   ctx.shadowColor = col;
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = LOW ? 0 : 12;
   ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
   ctx.lineWidth = Math.max(1.5, h * 0.08);
@@ -403,7 +443,7 @@ function drawHarmonic(ctx: CanvasRenderingContext2D, x: number, y: number, w: nu
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.shadowColor = '#FFD23F';
-  ctx.shadowBlur = 22;
+  ctx.shadowBlur = LOW ? 0 : 22;
   ctx.fillStyle = '#FFE27A';
   ctx.beginPath();
   for (let i = 0; i < 8; i++) {
@@ -425,7 +465,7 @@ function drawPullOff(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.shadowColor = col;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = LOW ? 0 : 14;
   ctx.strokeStyle = col;
   ctx.lineWidth = Math.max(2, h * 0.34);
   ctx.lineCap = 'round';

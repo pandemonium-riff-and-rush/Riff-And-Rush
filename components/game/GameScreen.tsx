@@ -7,7 +7,7 @@ import type { Chart, DifficultyId } from '@/lib/chart/types';
 import { difficultyInfo, formatTime, lastNoteEnd, LANE_COLORS, playEnd } from '@/lib/chart/types';
 import { GameClock, MetronomeClock, YouTubeClock, type ClockStatus, type TamperKind } from '@/lib/game/clock';
 import { Scorer } from '@/lib/game/engine';
-import { drawHighway, HH, HIT, HW, laneX } from '@/lib/game/render';
+import { DESKTOP_GEO, drawHighway, geoFor, HH, HW, laneX, type Geo } from '@/lib/game/render';
 import { Fx } from '@/lib/game/fx';
 import { getAllCharts, getBest, getSettings, getVideoOverrides, saveSettings, setLastResult, setVideoOverride, submitBest, type Settings } from '@/lib/data/store';
 import { Cover } from '@/components/Cover';
@@ -25,6 +25,25 @@ import { HudCell, MultRing } from './Hud';
 type Phase = 'loading' | 'intro' | 'waiting' | 'countdown' | 'playing' | 'paused' | 'resuming' | 'error' | 'finished';
 
 interface Hud { score: number; combo: number; mult: number; acc: number; energy: number; rank: string; t: number; boosting: boolean }
+
+/** Cómo se arma la pantalla: escritorio (escenario 1440×900 escalado) o teléfono (vertical u horizontal). */
+interface Layout { mobile: boolean; landscape: boolean; vw: number; vh: number }
+
+function readLayout(): Layout {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  // Teléfono: pantalla angosta, vertical, o táctil con poca altura (teléfono acostado)
+  const mobile = vw < 820 || vh > vw || (coarse && vh < 600);
+  return { mobile, landscape: vw > vh, vw, vh };
+}
+
+/** Efectos livianos de entrada: si el usuario lo pidió, o en automático en equipos táctiles o con pocos núcleos. */
+function startLowFx(pref: Settings['effects']) {
+  if (pref === 'low') return true;
+  if (pref === 'high') return false;
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  return coarse || (navigator.hardwareConcurrency ?? 8) <= 4;
+}
 
 const JUDGE_TEXT = { perfect: 'Perfecto', good: 'Bien', miss: 'Fallo', ghost: 'Sin nota' } as const;
 const JUDGE_COLOR = { perfect: '#3DDC84', good: '#3FA9FF', miss: '#FF4D6D', ghost: '#8C84B8' } as const;
@@ -64,6 +83,12 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const [cd, setCd] = useState(3);
   const [errorMsg, setErrorMsg] = useState('');
   const [scale, setScale] = useState(1);
+  const [lay, setLay] = useState<Layout>({ mobile: false, landscape: true, vw: 1440, vh: 900 });
+  /** Tamaño de la caja de la autopista en el teléfono (se mide con ResizeObserver). */
+  const [hwSize, setHwSize] = useState({ w: 390, h: 420 });
+  const hwBoxRef = useRef<HTMLDivElement>(null);
+  const [lowFx, setLowFx] = useState(false);
+  const lowFxRef = useRef(false);
   const [tamper, setTamper] = useState<TamperKind | null>(null);
   /** Aviso breve cuando el reloj repuso el video solo (no corta la partida). */
   const [recovered, setRecovered] = useState(false);
@@ -193,11 +218,48 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
 
   /* ---------- Escala para que el escenario de 1440×900 quepa en la ventana ---------- */
   useEffect(() => {
-    const fit = () => setScale(Math.min(window.innerWidth / 1440, window.innerHeight / 900));
+    const fit = () => {
+      setScale(Math.min(window.innerWidth / 1440, window.innerHeight / 900));
+      setLay(readLayout());
+    };
     fit();
     window.addEventListener('resize', fit);
-    return () => window.removeEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+    return () => { window.removeEventListener('resize', fit); window.removeEventListener('orientationchange', fit); };
   }, []);
+
+  // Efectos livianos (teléfonos o equipos lentos)
+  useEffect(() => {
+    const low = startLowFx(settings.effects);
+    lowFxRef.current = low;
+    fxRef.current.low = low;
+    setLowFx(low);
+  }, [settings.effects]);
+
+  // Autopista del teléfono: ocupa todo el espacio que queda, se mide al cambiar de tamaño
+  useEffect(() => {
+    const el = hwBoxRef.current;
+    if (!lay.mobile || !el) return;
+    const ro = new ResizeObserver(([e]) => {
+      const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height);
+      if (w > 50 && h > 50) setHwSize((o) => (o.w === w && o.h === h ? o : { w, h }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [lay.mobile, lay.landscape]);
+
+  const geo: Geo = useMemo(() => (lay.mobile ? geoFor(hwSize.w, hwSize.h) : DESKTOP_GEO), [lay.mobile, hwSize.w, hwSize.h]);
+  const geoRef = useRef<Geo>(geo);
+  geoRef.current = geo;
+
+  // Tamaño del video: en el teléfono al ancho disponible, nunca bajo 200×200 (regla de YouTube)
+  const video = useMemo(() => {
+    if (!lay.mobile) return { w: 400, h: 225 };
+    const avail = lay.landscape ? Math.min(400, lay.vw * 0.42 - 20) : Math.min(400, lay.vw - 20);
+    const w = Math.max(200, Math.floor(avail));
+    return { w, h: Math.max(200, Math.round((w * 9) / 16)) };
+  }, [lay.mobile, lay.landscape, lay.vw]);
+  useEffect(() => { clockRef.current?.setSize?.(video.w, video.h); }, [video.w, video.h]);
 
   /* ---------- Controles ---------- */
   const start = useCallback(() => {
@@ -312,9 +374,11 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = HW * dpr;
-    canvas.height = HH * dpr;
+    const g0 = geoRef.current;
+    // En modo liviano se dibuja a menos resolución (se nota poco y alivia mucho al teléfono)
+    const dpr = Math.min(lowFxRef.current ? 1.5 : 2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(g0.w * dpr);
+    canvas.height = Math.round(g0.h * dpr);
     const ctx = canvas.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     let raf = 0;
@@ -328,6 +392,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     let prevCombo = 0;
     let prevBoost = false;
     let energyHinted = false;
+    // Automático: si el juego va lento (menos de ~45 cuadros por segundo sostenido), pasa a liviano
+    let slowFrames = 0;
     const beatLen = 60 / chart.bpm;
     const loop = (ms: number) => {
       inputsRef.current?.poll();
@@ -368,9 +434,10 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         const fresh = Math.min(s.eventCount - eventsSeen.current, s.events.length);
         eventsSeen.current = s.eventCount;
         for (const ev of s.events.slice(-fresh)) {
-          const x = laneX(ev.lane, lanes);
-          if (ev.judgment === 'miss' || ev.judgment === 'ghost') fxRef.current.miss(ev.lane, x, HIT);
-          else fxRef.current.hit(x, HIT, s.boosting ? '#FFE27A' : LANE_COLORS[ev.lane], ev.judgment === 'perfect');
+          const g = geoRef.current;
+          const x = laneX(ev.lane, lanes, g);
+          if (ev.judgment === 'miss' || ev.judgment === 'ghost') fxRef.current.miss(ev.lane, x, g.hit);
+          else fxRef.current.hit(x, g.hit, s.boosting ? '#FFE27A' : LANE_COLORS[ev.lane], ev.judgment === 'perfect');
         }
         const ev = s.events[s.events.length - 1];
         const sub = ev.judgment === 'good' ? (ev.offsetMs < 0 ? 'temprano' : 'tarde') : undefined;
@@ -388,12 +455,18 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       drawHighway(ctx, {
         t, notes: s.notes, lanes, window: 3.6 / speedRef.current, bpm: chart.bpm, tempo: tmap,
         pressed: pressedRef.current, flashAt: flashRef.current, boosting: s.boosting,
-        showNotes: p !== 'loading', theme: settings.theme, mult: s.multiplier, fx: fxRef.current
+        showNotes: p !== 'loading', theme: settings.theme, mult: s.multiplier, fx: fxRef.current,
+        geo: geoRef.current, low: lowFxRef.current
       });
 
       // Fondo visualizador: energía por carril sacada de las notas del chart (van con la música)
-      const dtf = Math.min(0.05, (ms - lastFrame) / 1000);
+      const rawDt = (ms - lastFrame) / 1000;
+      const dtf = Math.min(0.05, rawDt);
       lastFrame = ms;
+      if (settings.effects === 'auto' && !lowFxRef.current && p === 'playing') {
+        slowFrames = rawDt > 0.022 ? slowFrames + 1 : Math.max(0, slowFrames - 2);
+        if (slowFrames > 90) { lowFxRef.current = true; fxRef.current.low = true; setLowFx(true); }
+      }
       const le = laneE.current;
       for (let i = 0; i < 6; i++) le[i] *= Math.exp(-dtf * 4.5);
       const live = p === 'playing' || p === 'countdown' || p === 'waiting';
@@ -409,13 +482,13 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         }
         lastMusicT.current = t;
       }
-      if (bctx) {
+      if (bctx && !lowFxRef.current) {
         backdropRef.current.draw(bctx, {
           t, bpm: chart.bpm, laneEnergy: le, lanes, heat: s.boosting ? 1 : Math.min(1, s.combo / 40),
           boosting: s.boosting, mult: s.multiplier, spectrum: micRef.current?.spectrum() ?? null, playing: p === 'playing' || p === 'countdown'
         });
       }
-      if (ms - lastHud > 80) {
+      if (ms - lastHud > (lowFxRef.current ? 120 : 80)) {
         lastHud = ms;
         setHud({ score: s.score, combo: s.combo, mult: s.multiplier, acc: s.accuracy, energy: s.energy, rank: s.rank(), t: Math.max(0, t), boosting: s.boosting });
       }
@@ -423,7 +496,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [auto, chart.bpm, endAt, finish, lanes, makeScorer, now, practice, setPhase, settings.theme, tmap]);
+  }, [auto, chart.bpm, endAt, finish, lanes, makeScorer, now, practice, setPhase, settings.theme, settings.effects, tmap, geo.w, geo.h, lay.mobile, lowFx]);
 
   useEffect(() => {
     if (!banner) return;
@@ -492,42 +565,174 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const keysShown = settings.keys.slice(0, lanes);
   const multColor = hud.boosting ? '#F5B700' : (['#A855F7', '#A855F7', '#3FA9FF', '#3DDC84', '#FF4D6D'][Math.min(4, hud.mult)]);
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: '#05041A', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', left: '50%', top: '50%', width: 1440, height: 900, transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', color: 'var(--text)' }}>
-        <canvas ref={bgRef} aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: BW, height: BH }} />
-
-        {/* Pantalla del escenario: el reproductor de YouTube va aquí, sin nada encima */}
-        <div aria-label="Pantalla del escenario" style={{ position: 'absolute', left: 512, top: 10, width: 416, height: 241, padding: 6, background: '#000', border: '2px solid var(--border)', borderRadius: 3, boxShadow: '0 0 60px rgba(168,85,247,0.35), 0 20px 50px rgba(0,0,0,0.8)' }}>
-          {isYouTube ? (
-            /*
-             * El reproductor queda interactivo a propósito. Las políticas de desarrollador de
-             * YouTube prohíben "block any portion or functionality of a YouTube player" y
-             * "remove, obscure, alter, or disable any links that appear in YouTube players":
-             * un iframe con pointer-events desactivado también tapa el enlace "Ver en YouTube".
-             * Para que nadie desincronice la partida alcanza con controls:0 y disablekb:1
-             * (parámetros oficiales) más la detección onTamper del reloj, que pausa el juego
-             * y devuelve el video a su segundo al continuar.
-             */
-            <div style={{ position: 'relative', width: 400, height: 225, background: '#000' }}>
-              <div id="yt-player" />
-              {/* Nada encima del reproductor: las políticas de YouTube prohíben taparlo o
-                  bloquear sus enlaces. Que no se pueda manipular sin querer lo resuelven
-                  controls:0 + disablekb:1 (oficiales), el tabindex -1 del iframe y, si
-                  igual alguien le pega un clic, onRecover: el reloj repone el video solo. */}
-              {recovered && (
-                <div role="status" style={{ position: 'absolute', left: 8, right: 8, bottom: 8, padding: '6px 10px', borderRadius: 3, background: 'rgba(10,9,22,0.92)', border: '1px solid var(--accent)', color: 'var(--text-2)', fontSize: 12, textAlign: 'center', pointerEvents: 'none' }}>
-                  El video se movió: lo devolvimos a su lugar. Para pausar, usa el botón o Esc.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ width: 400, height: 225, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0B0716', textAlign: 'center', padding: 24 }}>
-              <div className="disp" style={{ fontSize: 30, lineHeight: '34px', color: 'var(--accent)', whiteSpace: 'nowrap' }}>Modo metrónomo</div>
-              <div className="muted" style={{ maxWidth: 340, fontSize: 14 }}>Esta canción de prueba no tiene video. Asígnale uno de YouTube desde su ficha para tocar con la canción real.</div>
+  /** Todo lo que va encima de la autopista (textos, cuentas, pausa). `c` = pantalla chica (teléfono). */
+  const renderOverlays = (g: Geo, c: boolean) => (
+    <>
+          {c && phase === 'waiting' && (
+            <div role="status" style={{ position: 'absolute', left: 8, right: 8, top: 8, padding: '8px 10px', borderRadius: 3, background: 'rgba(30,24,6,0.92)', border: '1px solid rgba(255,210,63,0.6)', color: 'var(--warn)', fontSize: 13 }}>
+              <b>{hasPlayed.current ? 'Esperando al video' : 'Preparando el video'}</b> · {hasPlayed.current ? 'puede haber un anuncio; sigue solo.' : 'si hay un anuncio, pasa ahora.'}
+              {stuck && <> <Link href={`/cancion/${chart.id}`}>Volver</Link></>}
             </div>
           )}
+          {hud.combo >= 10 && phase === 'playing' && (
+            <div style={{ position: 'absolute', left: 0, top: c ? Math.round(g.hit * 0.4) : 236, width: g.w, textAlign: 'center', pointerEvents: 'none' }}>
+              <div key={Math.floor(hud.combo / 10)} className="disp combo-pop" style={{ fontSize: c ? 44 : 68, lineHeight: c ? '44px' : '68px', color: '#fff', textShadow: `4px 4px 0 #000, 0 0 30px ${multColor}` }}>{hud.combo}</div>
+              <div className="marker" style={{ fontSize: c ? 15 : 20, color: hud.boosting ? 'var(--gold)' : multColor, transform: 'rotate(-4deg)', textShadow: '2px 2px 0 #000' }}>{hud.boosting ? '¡Modo leyenda!' : hud.mult >= 4 ? '¡En llamas!' : '¡Combo!'}</div>
+            </div>
+          )}
+          {banner && (phase === 'playing' || phase === 'countdown') && (
+            // Arriba, en el fondo de la autopista (donde las notas aún son chicas) y con placa oscura: no tapa lo que viene
+            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, padding: c ? '3px 12px' : '4px 18px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: `1px solid ${banner.color}`, fontSize: c ? 18 : 30, lineHeight: c ? '22px' : '36px', color: banner.color, textShadow: `3px 3px 0 #000, 0 0 18px ${banner.color}`, pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
+          )}
+          {judge && (phase === 'playing' || phase === 'countdown') && (
+            <div key={judge.key} className="judge-pop" style={{ position: 'absolute', left: g.w / 2, top: g.hit - (c ? 72 : 100), textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+              <div className="disp" style={{ fontSize: c ? 24 : 34, lineHeight: c ? '26px' : '36px', color: judge.color, textShadow: `3px 3px 0 #000, 0 0 16px ${judge.color}` }}>{judge.text}</div>
+              {judge.sub && <div className="cond" style={{ fontSize: 14, letterSpacing: '0.12em', color: '#CFCAEA', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
+            </div>
+          )}
+
+          {/* Ya no quedan notas pero el video sigue (créditos, outro): no hay para qué esperar */}
+          {!practice && (phase === 'playing' || phase === 'waiting') && hud.t > lastNote + 2 && endAt - hud.t > 8 && (
+            <div style={{ position: 'absolute', left: 0, top: g.hit - (c ? 150 : 190), width: g.w, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div className="cond" style={{ fontSize: 16, letterSpacing: '0.1em', color: 'var(--text-2)', textShadow: '2px 2px 0 #000' }}>Se acabaron las notas</div>
+              <button className="btn btn-p" type="button" onClick={finish} style={{ height: 48, padding: '0 28px', fontSize: 18 }}>Terminar y ver resultados</button>
+            </div>
+          )}
+
+          {phase === 'countdown' && !afterPause.current && (
+            <div className="cond" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, transform: 'translateX(-50%)', padding: '4px 14px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: '1px solid var(--border)', fontSize: 14, letterSpacing: '0.14em', color: 'var(--text-2)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+              LA CANCIÓN PARTE EN {cd} S
+            </div>
+          )}
+          {(phase === 'resuming' || (phase === 'countdown' && afterPause.current)) && (
+            <div style={{ position: 'absolute', left: 0, top: c ? Math.round(g.h * 0.18) : 120, width: g.w, textAlign: 'center', pointerEvents: 'none' }}>
+              {phase === 'resuming' && <div className="cond" style={{ fontSize: 20, color: 'var(--text-3)' }}>Retrocediendo 2 s</div>}
+              <div key={cd} className="disp cd-pop" style={{ fontSize: c ? 96 : 150, lineHeight: c ? '96px' : '150px', textShadow: '6px 6px 0 #000, 0 0 50px rgba(168,85,247,0.8)' }}>{cd}</div>
+            </div>
+          )}
+          {(phase === 'intro' || phase === 'loading') && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              {phase === 'loading' ? (
+                <div className="cond" style={{ fontSize: 22, color: 'var(--text-3)' }}>Cargando video…</div>
+              ) : (
+                <>
+                  <button className="btn btn-p" type="button" onClick={start} style={{ height: 64, padding: '0 40px', fontSize: 24 }}>¡A tocar!</button>
+                  <div className="small muted">{c ? 'Toca los botones de colores de abajo' : `o presiona Enter · teclas ${keysShown.join(' ').toUpperCase()}`}</div>
+                </>
+              )}
+            </div>
+          )}
+          {phase === 'paused' && (
+            <div style={{ position: c ? 'fixed' : 'absolute', inset: 0, zIndex: 20, background: 'rgba(7,6,26,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: c ? 12 : 0 }}>
+              <div role="dialog" aria-label="Pausa" className="modal" style={{ width: 'min(380px, calc(100vw - 24px))', maxHeight: c ? 'calc(100dvh - 24px)' : 540, overflowY: 'auto', padding: c ? 18 : undefined }}>
+                <div className="disp" style={{ fontSize: 44, lineHeight: '44px' }}>Pausa</div>
+                <div className="small muted">{chart.title} · {info.name} · {formatTime(hud.t)}</div>
+                {tamper && (
+                  <div className="small" style={{ padding: '10px 12px', borderRadius: 3, background: 'rgba(30,24,6,0.9)', border: '1px solid rgba(255,210,63,0.5)', color: '#EADFA8' }}>
+                    {tamper === 'pause' ? 'Pausaste el video desde el reproductor.' : 'Moviste el video desde el reproductor.'} Acá se pausa con este botón o con <b>Esc</b>: al continuar el video vuelve solo al segundo correcto.
+                  </div>
+                )}
+                <button className="btn btn-p" type="button" onClick={() => resume()} autoFocus>Continuar</button>
+                <button className="btn btn-s" type="button" onClick={() => resume(true)}>{practice ? 'Reiniciar tramo' : 'Reiniciar'}</button>
+                <div className="col" style={{ gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                  <div className="row"><span className="label grow">Velocidad de notas</span><span className="mono small">{speed.toFixed(1)}×</span></div>
+                  <input type="range" min={1} max={3.5} step={0.1} value={speed} onChange={(e) => changeSpeed(Number(e.target.value))} aria-label="Velocidad de notas" />
+                  <span className="label">Tu latencia (todas las canciones)</span>
+                  <OffsetControl value={latencyMs} onChange={changeLatency} />
+                  <span className="small muted">Si golpeas tarde en todas las canciones, sube. Si golpeas temprano, baja.</span>
+                  {isYouTube && (
+                    <>
+                      <span className="label">Desfase de esta canción</span>
+                      <OffsetControl value={chartOffset} onChange={changeChartOffset} />
+                      <span className="small muted">Si las notas van corridas solo en esta canción, arréglalo aquí: se guarda con el chart.</span>
+                    </>
+                  )}
+                </div>
+                <button className="btn btn-g" type="button" onClick={finish}>{practice ? 'Salir de la práctica' : 'Terminar y ver resultados'}</button>
+                {c && <Link className="btn btn-g" href={`/cancion/${chart.id}`}>Salir</Link>}
+              </div>
+            </div>
+          )}
+          {phase === 'error' && (
+            <div style={{ position: c ? 'fixed' : 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+              <div className="modal" style={{ width: 'min(460px, calc(100vw - 24px))' }}>
+                <div className="disp" style={{ fontSize: 32 }}>No se pudo cargar el video</div>
+                <div className="muted">{errorMsg}</div>
+                <Link className="btn btn-p" href={`/cancion/${chart.id}`}>Volver a la canción</Link>
+              </div>
+            </div>
+          )}
+    </>
+  );
+
+  // ---------- Caja del video: el mismo elemento en escritorio y teléfono (moverlo recargaría el video) ----------
+  const boxPad = lay.mobile ? 4 : 6;
+  const innerH = isYouTube ? video.h : lay.mobile ? 56 : 225;
+  const boxW = video.w + boxPad * 2 + 4;
+  const boxH = innerH + boxPad * 2 + 4;
+  const videoBoxStyle: React.CSSProperties = lay.mobile
+    ? { position: 'absolute', left: lay.landscape ? 8 : Math.round((lay.vw - boxW) / 2), top: lay.landscape ? 8 : 'calc(env(safe-area-inset-top) + 52px)', width: boxW, height: boxH, zIndex: 2 }
+    : { position: 'absolute', left: (lay.vw - 1440 * scale) / 2 + 512 * scale, top: (lay.vh - 900 * scale) / 2 + 10 * scale, width: 416, height: 241, transform: `scale(${scale})`, transformOrigin: 'top left', zIndex: 2 };
+  const pct = Math.min(100, (hud.t / endAt) * 100);
+  const canPause = phase === 'playing' || phase === 'countdown' || phase === 'waiting';
+  const tag = auto ? ' · Demo' : practice ? ' · Práctica' : '';
+
+  // ---------- Piezas del teléfono ----------
+  const mTopBar = (
+    <div style={{ height: 48, display: 'flex', alignItems: 'center', gap: 10, padding: '0 10px', flexShrink: 0 }}>
+      <button className="btn btn-s" type="button" aria-label="Pausar" onClick={pause} disabled={!canPause} style={{ width: 44, height: 40, padding: 0, fontSize: 16, boxShadow: 'none' }}>❚❚</button>
+      <div className="col grow" style={{ minWidth: 0, gap: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {chart.title} <span style={{ fontWeight: 500, color: info.color }}>· {info.name}{tag}</span>
         </div>
+        <div style={{ height: 4, borderRadius: 2, background: 'var(--bg-hover)', overflow: 'hidden' }}><div style={{ height: 4, width: `${pct}%`, background: 'var(--accent)' }} /></div>
+      </div>
+      <div className="disp" style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{fmt(hud.score)}</div>
+    </div>
+  );
+  const energyReady = hud.energy >= 0.5 && !hud.boosting;
+  const mStats = (
+    <div style={{ height: 44, display: 'flex', alignItems: 'center', gap: 10, padding: '0 10px', flexShrink: 0 }}>
+      <span className="disp" style={{ fontSize: 20, color: multColor, minWidth: 34 }}>×{hud.mult}</span>
+      <span className="mono small" style={{ minWidth: 58 }}><b style={{ fontSize: 16 }}>{hud.combo}</b> racha</span>
+      <span className="mono small" style={{ color: 'var(--ok)', minWidth: 52 }}>{(hud.acc * 100).toFixed(1).replace('.', ',')}%</span>
+      <button type="button" aria-label={`Energía ${Math.round(hud.energy * 100)} %. Toca para activar el modo Leyenda`}
+        onPointerDown={(e) => { e.preventDefault(); scorerRef.current.activateBoost(now()); }}
+        style={{ flex: 1, height: 26, position: 'relative', borderRadius: 13, overflow: 'hidden', cursor: 'pointer', background: 'rgba(10,9,22,0.9)', border: `1px solid ${energyReady ? 'var(--gold)' : 'var(--border)'}`, touchAction: 'none', padding: 0 }}>
+        <span className={energyReady ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${hud.energy * 100}%`, background: 'linear-gradient(90deg,#7E22CE,#EC4899 60%,#F5B700)' }} />
+        <span className="cond" style={{ position: 'relative', fontSize: 11, letterSpacing: '0.12em', color: energyReady || hud.boosting ? '#fff' : 'var(--text-2)' }}>{hud.boosting ? 'LEYENDA' : energyReady ? 'TOCA: LEYENDA' : 'ENERGÍA'}</span>
+      </button>
+      <span className="disp" style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: rankCol, border: `2px solid ${rankCol}` }}>{hud.rank}</span>
+    </div>
+  );
+  const mPads = (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${lanes}, 1fr)`, gap: 6, padding: '6px 8px calc(8px + env(safe-area-inset-bottom))', height: lay.landscape ? 72 : 92, flexShrink: 0 }}>
+      {Array.from({ length: lanes }).map((_, i) => (
+        <button key={i} type="button" aria-label={`Carril ${i + 1}`} className="pad"
+          onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); if (phaseRef.current === 'intro') start(); else hitLane(i, true); }}
+          onPointerUp={() => hitLane(i, false)} onPointerCancel={() => hitLane(i, false)} onContextMenu={(e) => e.preventDefault()}
+          style={{ touchAction: 'none', borderRadius: 12, border: `2px solid ${LANE_COLORS[i]}`, background: `${LANE_COLORS[i]}26`, boxShadow: `inset 0 -6px 0 ${LANE_COLORS[i]}55`, cursor: 'pointer' }} />
+      ))}
+    </div>
+  );
+  const mHighway = (
+    <div ref={hwBoxRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <canvas ref={canvasRef} aria-label="Autopista de notas"
+        style={{ position: 'absolute', left: 0, top: 0, width: geo.w, height: geo.h, display: 'block', touchAction: 'none' }}
+        onPointerDown={(e) => { if (phaseRef.current === 'intro') start(); else hitLane(laneFromPointer(e), true); }}
+        onPointerUp={(e) => hitLane(laneFromPointer(e), false)} />
+      {renderOverlays(geo, true)}
+    </div>
+  );
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: lay.mobile ? 'radial-gradient(120% 70% at 50% 100%, #1C1238 0%, #05041A 70%)' : '#05041A', overflow: 'hidden', userSelect: 'none', WebkitUserSelect: 'none', touchAction: lay.mobile ? 'none' : undefined }}>
+      {!lay.mobile ? (
+      <div style={{ position: 'absolute', left: '50%', top: '50%', width: 1440, height: 900, transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', color: 'var(--text)' }}>
+        {/* Fondo animado: en modo liviano se reemplaza por un degradado fijo */}
+        {lowFx
+          ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'radial-gradient(80% 60% at 50% 70%, #1C1238 0%, #05041A 70%)' }} />
+          : <canvas ref={bgRef} aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: BW, height: BH }} />}
 
         {/* Columna izquierda */}
         <aside style={{ position: 'absolute', left: 32, top: 36, width: 280, height: 836, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -601,93 +806,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
             onPointerUp={(e) => hitLane(laneFromPointer(e), false)}
             aria-label="Autopista de notas"
           />
-          {hud.combo >= 10 && phase === 'playing' && (
-            <div style={{ position: 'absolute', left: 0, top: 236, width: HW, textAlign: 'center', pointerEvents: 'none' }}>
-              <div key={Math.floor(hud.combo / 10)} className="disp combo-pop" style={{ fontSize: 68, lineHeight: '68px', color: '#fff', textShadow: `4px 4px 0 #000, 0 0 30px ${multColor}` }}>{hud.combo}</div>
-              <div className="marker" style={{ fontSize: 20, color: hud.boosting ? 'var(--gold)' : multColor, transform: 'rotate(-4deg)', textShadow: '2px 2px 0 #000' }}>{hud.boosting ? '¡Modo leyenda!' : hud.mult >= 4 ? '¡En llamas!' : '¡Combo!'}</div>
-            </div>
-          )}
-          {banner && (phase === 'playing' || phase === 'countdown') && (
-            // Arriba, en el fondo de la autopista (donde las notas aún son chicas) y con placa oscura: no tapa lo que viene
-            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: HW / 2, top: 18, padding: '4px 18px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: `1px solid ${banner.color}`, fontSize: 30, lineHeight: '36px', color: banner.color, textShadow: `3px 3px 0 #000, 0 0 18px ${banner.color}`, pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
-          )}
-          {judge && (phase === 'playing' || phase === 'countdown') && (
-            <div key={judge.key} className="judge-pop" style={{ position: 'absolute', left: HW / 2, top: HIT - 100, textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-              <div className="disp" style={{ fontSize: 34, lineHeight: '36px', color: judge.color, textShadow: `3px 3px 0 #000, 0 0 16px ${judge.color}` }}>{judge.text}</div>
-              {judge.sub && <div className="cond" style={{ fontSize: 14, letterSpacing: '0.12em', color: '#CFCAEA', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
-            </div>
-          )}
-
-          {/* Ya no quedan notas pero el video sigue (créditos, outro): no hay para qué esperar */}
-          {!practice && (phase === 'playing' || phase === 'waiting') && hud.t > lastNote + 2 && endAt - hud.t > 8 && (
-            <div style={{ position: 'absolute', left: 0, top: HIT - 190, width: HW, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div className="cond" style={{ fontSize: 16, letterSpacing: '0.1em', color: 'var(--text-2)', textShadow: '2px 2px 0 #000' }}>Se acabaron las notas</div>
-              <button className="btn btn-p" type="button" onClick={finish} style={{ height: 48, padding: '0 28px', fontSize: 18 }}>Terminar y ver resultados</button>
-            </div>
-          )}
-
-          {phase === 'countdown' && !afterPause.current && (
-            <div className="cond" style={{ position: 'absolute', left: HW / 2, top: 18, transform: 'translateX(-50%)', padding: '4px 14px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: '1px solid var(--border)', fontSize: 14, letterSpacing: '0.14em', color: 'var(--text-2)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-              LA CANCIÓN PARTE EN {cd} S
-            </div>
-          )}
-          {(phase === 'resuming' || (phase === 'countdown' && afterPause.current)) && (
-            <div style={{ position: 'absolute', left: 0, top: 120, width: HW, textAlign: 'center', pointerEvents: 'none' }}>
-              {phase === 'resuming' && <div className="cond" style={{ fontSize: 20, color: 'var(--text-3)' }}>Retrocediendo 2 s</div>}
-              <div key={cd} className="disp cd-pop" style={{ fontSize: 150, lineHeight: '150px', textShadow: '6px 6px 0 #000, 0 0 50px rgba(168,85,247,0.8)' }}>{cd}</div>
-            </div>
-          )}
-          {(phase === 'intro' || phase === 'loading') && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-              {phase === 'loading' ? (
-                <div className="cond" style={{ fontSize: 22, color: 'var(--text-3)' }}>Cargando video…</div>
-              ) : (
-                <>
-                  <button className="btn btn-p" type="button" onClick={start} style={{ height: 64, padding: '0 40px', fontSize: 24 }}>¡A tocar!</button>
-                  <div className="small muted">o presiona Enter · teclas {keysShown.join(' ').toUpperCase()}</div>
-                </>
-              )}
-            </div>
-          )}
-          {phase === 'paused' && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,6,26,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div role="dialog" aria-label="Pausa" className="modal" style={{ width: 380, maxHeight: 540, overflowY: "auto" }}>
-                <div className="disp" style={{ fontSize: 44, lineHeight: '44px' }}>Pausa</div>
-                <div className="small muted">{chart.title} · {info.name} · {formatTime(hud.t)}</div>
-                {tamper && (
-                  <div className="small" style={{ padding: '10px 12px', borderRadius: 3, background: 'rgba(30,24,6,0.9)', border: '1px solid rgba(255,210,63,0.5)', color: '#EADFA8' }}>
-                    {tamper === 'pause' ? 'Pausaste el video desde el reproductor.' : 'Moviste el video desde el reproductor.'} Acá se pausa con este botón o con <b>Esc</b>: al continuar el video vuelve solo al segundo correcto.
-                  </div>
-                )}
-                <button className="btn btn-p" type="button" onClick={() => resume()} autoFocus>Continuar</button>
-                <button className="btn btn-s" type="button" onClick={() => resume(true)}>{practice ? 'Reiniciar tramo' : 'Reiniciar'}</button>
-                <div className="col" style={{ gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                  <div className="row"><span className="label grow">Velocidad de notas</span><span className="mono small">{speed.toFixed(1)}×</span></div>
-                  <input type="range" min={1} max={3.5} step={0.1} value={speed} onChange={(e) => changeSpeed(Number(e.target.value))} aria-label="Velocidad de notas" />
-                  <span className="label">Tu latencia (todas las canciones)</span>
-                  <OffsetControl value={latencyMs} onChange={changeLatency} />
-                  <span className="small muted">Si golpeas tarde en todas las canciones, sube. Si golpeas temprano, baja.</span>
-                  {isYouTube && (
-                    <>
-                      <span className="label">Desfase de esta canción</span>
-                      <OffsetControl value={chartOffset} onChange={changeChartOffset} />
-                      <span className="small muted">Si las notas van corridas solo en esta canción, arréglalo aquí: se guarda con el chart.</span>
-                    </>
-                  )}
-                </div>
-                <button className="btn btn-g" type="button" onClick={finish}>{practice ? 'Salir de la práctica' : 'Terminar y ver resultados'}</button>
-              </div>
-            </div>
-          )}
-          {phase === 'error' && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="modal" style={{ width: 460 }}>
-                <div className="disp" style={{ fontSize: 32 }}>No se pudo cargar el video</div>
-                <div className="muted">{errorMsg}</div>
-                <Link className="btn btn-p" href={`/cancion/${chart.id}`}>Volver a la canción</Link>
-              </div>
-            </div>
-          )}
+          {renderOverlays(DESKTOP_GEO, false)}
         </div>
 
         {/* Energía */}
@@ -742,6 +861,56 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
 
         <div className="small" style={{ position: 'absolute', right: 32, bottom: 14, color: 'var(--text-2)' }}><Logo size={16} /></div>
       </div>
+      ) : lay.landscape ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', color: 'var(--text)', padding: 'env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)' }}>
+          <div style={{ width: boxW + 16, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            <div style={{ height: boxH + 8, flexShrink: 0 }} />
+            {mTopBar}
+            {mStats}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            {mHighway}
+            {mPads}
+          </div>
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', color: 'var(--text)', paddingTop: 'env(safe-area-inset-top)' }}>
+          {mTopBar}
+          <div style={{ height: boxH + 8, flexShrink: 0 }} />
+          {mStats}
+          {mHighway}
+          {mPads}
+        </div>
+      )}
+
+      {/* Pantalla del escenario: el reproductor de YouTube, siempre el mismo nodo (se reubica, no se recrea) */}
+      <div aria-label="Pantalla del escenario" style={{ ...videoBoxStyle, padding: boxPad, background: '#000', border: '2px solid var(--border)', borderRadius: 3, boxShadow: lay.mobile || lowFx ? undefined : '0 0 60px rgba(168,85,247,0.35), 0 20px 50px rgba(0,0,0,0.8)', color: 'var(--text)' }}>
+        {isYouTube ? (
+          /*
+           * Nada encima del reproductor: las políticas de YouTube prohíben taparlo o bloquear sus
+           * enlaces. Que no se pueda manipular sin querer lo resuelven controls:0 + disablekb:1
+           * (oficiales), el tabindex -1 del iframe y onRecover: el reloj repone el video solo.
+           */
+          <div style={{ position: 'relative', width: video.w, height: video.h, background: '#000' }}>
+            <div id="yt-player" />
+            {recovered && (
+              <div role="status" style={{ position: 'absolute', left: 8, right: 8, bottom: 8, padding: '6px 10px', borderRadius: 3, background: 'rgba(10,9,22,0.92)', border: '1px solid var(--accent)', color: 'var(--text-2)', fontSize: 12, textAlign: 'center', pointerEvents: 'none' }}>
+                El video se movió: lo devolvimos a su lugar. Para pausar, usa el botón o Esc.
+              </div>
+            )}
+          </div>
+        ) : lay.mobile ? (
+          <div style={{ width: video.w, height: innerH, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#0B0716', textAlign: 'center', fontSize: 13 }}>
+            <span className="disp" style={{ fontSize: 18, color: 'var(--accent)' }}>Modo metrónomo</span>
+            <span className="muted">· sin video</span>
+          </div>
+        ) : (
+          <div style={{ width: 400, height: 225, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0B0716', textAlign: 'center', padding: 24 }}>
+            <div className="disp" style={{ fontSize: 30, lineHeight: '34px', color: 'var(--accent)', whiteSpace: 'nowrap' }}>Modo metrónomo</div>
+            <div className="muted" style={{ maxWidth: 340, fontSize: 14 }}>Esta canción de prueba no tiene video. Asígnale uno de YouTube desde su ficha para tocar con la canción real.</div>
+          </div>
+        )}
+      </div>
       <style>{`
         .judge-pop { transform: translate(-50%, 0) rotate(-3deg); animation: judgeUp .55s ease-out forwards; }
         @keyframes judgeUp { from { opacity: 1; transform: translate(-50%, 0) rotate(-3deg) scale(1.15); } to { opacity: 0; transform: translate(-50%, -30px) rotate(-3deg) scale(1); } }
@@ -755,6 +924,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         @keyframes energyPulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
         .mult-fire { animation: fire .18s ease-in-out infinite alternate; transform-origin: 50% 100%; }
         @keyframes fire { from { transform: scaleY(1) } to { transform: scaleY(1.15) } }
+        .pad:active { filter: brightness(1.8); transform: translateY(2px); }
+        .modal > * { flex-shrink: 0; }
       `}</style>
     </div>
   );

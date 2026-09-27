@@ -34,6 +34,8 @@ export interface GameClock {
   /** Cambia el desfase entre el video y el chart en caliente (segundos). */
   setOffset?(sec: number): void;
   destroy(): void;
+  /** Cambia el tamaño del reproductor de video (solo YouTube). */
+  setSize?(w: number, h: number): void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -225,6 +227,13 @@ export class YouTubeClock implements GameClock {
     this.onStatus?.(s);
   }
 
+  /** Tamaño del reproductor (en el teléfono se ajusta al ancho; YouTube pide mínimo 200×200). */
+  private size = { w: 400, h: 225 };
+  setSize(w: number, h: number) {
+    this.size = { w: Math.round(w), h: Math.round(h) };
+    if (this.ready) try { this.player?.setSize?.(this.size.w, this.size.h); } catch { /* sin reproductor */ }
+  }
+
   private create() {
     if (this.destroyed) return;
     const host = document.getElementById(this.elementId);
@@ -234,8 +243,8 @@ export class YouTubeClock implements GameClock {
     host.appendChild(this.el);
     this.player = new YT.Player(this.el, {
       videoId: this.videoId,
-      width: 400,
-      height: 225,
+      width: this.size.w,
+      height: this.size.h,
       // controls: 0 saca la barra de progreso y los botones: así nadie adelanta ni pausa
       // el video por fuera y desincroniza la partida. disablekb apaga los atajos de YouTube.
       playerVars: { playsinline: 1, rel: 0, modestbranding: 1, disablekb: 1, controls: 0, fs: 0, iv_load_policy: 3 },

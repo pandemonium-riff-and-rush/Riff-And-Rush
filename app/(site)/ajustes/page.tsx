@@ -88,6 +88,15 @@ export default function SettingsPage() {
               </div>
               <span className="small">{THEMES.find((t) => t.id === s.theme)?.name}</span>
             </div>
+            <div className="col" style={{ gap: 10 }}>
+              <span className="small muted">Efectos visuales</span>
+              <div className="seg" role="group" aria-label="Efectos visuales">
+                {([['auto', 'Automático'], ['high', 'Completos'], ['low', 'Livianos']] as const).map(([id, name]) => (
+                  <button key={id} type="button" aria-pressed={s.effects === id} aria-selected={s.effects === id} onClick={() => update({ effects: id })}>{name}</button>
+                ))}
+              </div>
+              <span className="small muted" style={{ maxWidth: 340 }}>Livianos: sin brillos ni fondo animado, para que el juego vaya fluido en teléfonos o computadores lentos. En automático se activan solos si hace falta.</span>
+            </div>
           </div>
         </section>
       </div>

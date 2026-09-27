@@ -151,6 +151,8 @@ export interface Settings {
   padPause: number | null;
   /** Nota MIDI para cada carril (batería o teclado MIDI). */
   midiNotes: (number | null)[];
+  /** Efectos visuales: auto = livianos en teléfonos o si el juego va lento. */
+  effects: 'auto' | 'high' | 'low';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -166,7 +168,8 @@ export const DEFAULT_SETTINGS: Settings = {
   padBoost: 8,
   padPause: 9,
   // Teclado MIDI: Do Re Mi Fa Sol La (C4…)
-  midiNotes: [60, 62, 64, 65, 67, 69]
+  midiNotes: [60, 62, 64, 65, 67, 69],
+  effects: 'auto'
 };
 
 export function getSettings(): Settings {

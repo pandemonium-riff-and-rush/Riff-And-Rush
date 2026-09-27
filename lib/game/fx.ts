@@ -16,9 +16,11 @@ export class Fx {
   /** Sacudida de pantalla tras un fallo (0..1). */
   shake = 0;
   private last = 0;
+  /** Modo liviano (teléfonos): menos chispas y sin destellos con degradado. */
+  low = false;
 
   hit(x: number, y: number, color: string, perfect: boolean) {
-    const n = perfect ? 18 : 10;
+    const n = this.low ? (perfect ? 5 : 3) : perfect ? 18 : 10;
     for (let i = 0; i < n; i++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.1;
       const sp = 180 + Math.random() * (perfect ? 380 : 240);
@@ -30,12 +32,13 @@ export class Fx {
       });
     }
     this.rings.push({ x, y, life: 0, max: perfect ? 0.32 : 0.24, color, big: perfect });
-    if (this.sparks.length > 500) this.sparks.splice(0, this.sparks.length - 500);
+    const cap = this.low ? 80 : 500;
+    if (this.sparks.length > cap) this.sparks.splice(0, this.sparks.length - cap);
   }
 
   /** Chispas continuas mientras se mantiene una nota larga. */
   sustain(x: number, y: number, color: string) {
-    if (Math.random() < 0.5) return;
+    if (Math.random() < (this.low ? 0.85 : 0.5)) return;
     const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
     const sp = 120 + Math.random() * 160;
     this.sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.25 + Math.random() * 0.2, size: 1.2 + Math.random() * 1.8, color: Math.random() < 0.4 ? '#FFFFFF' : color });
@@ -44,7 +47,7 @@ export class Fx {
   miss(lane: number, x: number, y: number) {
     this.missAt[lane] = performance.now() / 1000;
     this.puffs.push({ x, y, life: 0, max: 0.4 });
-    this.shake = Math.min(1, this.shake + 0.35);
+    if (!this.low) this.shake = Math.min(1, this.shake + 0.35);
   }
 
   step() {
@@ -71,7 +74,7 @@ export class Fx {
       ctx.beginPath();
       ctx.ellipse(r.x, r.y, 30 + k * (r.big ? 70 : 50), (30 + k * (r.big ? 70 : 50)) * 0.42, 0, 0, Math.PI * 2);
       ctx.stroke();
-      if (r.big && k < 0.4) {
+      if (r.big && k < 0.4 && !this.low) {
         const g = ctx.createRadialGradient(r.x, r.y - 20, 0, r.x, r.y - 20, 90);
         g.addColorStop(0, `rgba(255,255,255,${0.6 * (1 - k / 0.4)})`);
         g.addColorStop(1, 'rgba(255,255,255,0)');

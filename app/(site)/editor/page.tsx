@@ -663,6 +663,9 @@ function Editor() {
 
   return (
     <main className="page col" style={{ gap: 16, paddingTop: 20, maxWidth: 1600 }}>
+      <div className="only-narrow panel panel-pad small" style={{ borderColor: 'rgba(255,210,63,0.5)', color: '#EADFA8' }}>
+        El editor está pensado para computador (mouse y teclado). En el teléfono puedes mirarlo, pero crear un chart acá es incómodo.
+      </div>
       {/* ---------- Barra superior: datos y archivo ---------- */}
       <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
         <input className="input" aria-label="Título" placeholder="Nombre de la canción" value={chart.title}
