@@ -184,7 +184,6 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
   /* Nada de arrastrar la página de lado en un teléfono (clip, no hidden: el sticky sigue vivo) */
   main { overflow-x: clip; }
   .page { padding: 24px 16px 48px; }
-  .lib-track { padding-left: 16px; padding-right: 16px; }
   .lib-hero { height: 400px; }
   .nav { padding: 0 16px; gap: 16px; }
   .nav-user-name { display: none; }
@@ -230,15 +229,22 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .lib-chip { height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--text); font: 600 13px var(--font-body); cursor: pointer; white-space: nowrap; transition: background .15s; }
 .lib-chip:hover { background: var(--bg-raised); }
 .lib-chip[aria-selected=true] { background: var(--accent-fill); border-color: var(--accent); color: #fff; }
-.lib-track-wrap { position: relative; }
-.lib-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: max(80px, calc((100vw - 1440px) / 2 + 80px)); padding: 6px max(80px, calc((100vw - 1440px) / 2 + 80px)) 18px; scrollbar-width: none; }
+/*
+ * La fila vive dentro de la misma columna que el título, no de borde a borde de la
+ * pantalla: antes una tarjeta quedaba cortada pegada al borde y cada fila paraba en
+ * un punto distinto, así que la página entera se veía descuadrada.
+ */
+.lib-track-wrap { position: relative; max-width: 1440px; margin: 0 auto; padding-inline: 80px; }
+.lib-track { display: flex; gap: 16px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; padding: 6px 0 18px; scrollbar-width: none; }
 .lib-track::-webkit-scrollbar { display: none; }
 .lib-track > * { scroll-snap-align: start; }
 /* Visible apenas hay para dónde moverse: con opacity 0 nadie sabía que la fila seguía */
-.lib-arrow { position: absolute; top: 6px; bottom: 18px; width: 56px; z-index: 5; border: 0; cursor: pointer; color: #fff; font-size: 40px; line-height: 1; opacity: .75; transition: opacity .2s; }
-.lib-arrow:hover { opacity: 1; }
-.lib-arrow.left { left: 0; background: linear-gradient(90deg, rgba(10,9,22,.95), rgba(10,9,22,0)); }
-.lib-arrow.right { right: 0; background: linear-gradient(-90deg, rgba(10,9,22,.95), rgba(10,9,22,0)); }
+.lib-arrow { position: absolute; top: 6px; bottom: 18px; width: 48px; z-index: 5; border: 0; cursor: pointer; color: var(--text-2); font-size: 34px; line-height: 1; opacity: .8; transition: opacity .2s, color .2s; }
+.lib-arrow:hover { opacity: 1; color: var(--text); }
+/* En el margen, no encima de las tarjetas */
+.lib-arrow.left { left: 16px; background: transparent; }
+.lib-arrow.right { right: 16px; background: transparent; }
+@media (max-width: 900px) { .lib-track-wrap { padding-inline: 16px; } }
 .lib-track-wrap:hover .lib-arrow { opacity: 1; }
 .lib-track > * { scroll-snap-stop: always; }
 .song-card { position: relative; }
