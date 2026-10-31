@@ -106,3 +106,15 @@ export const DEMO_CHARTS: Chart[] = SEEDS.map((s, i) => {
   };
   return fillDifficulties(base);
 });
+
+/**
+ * Las canciones de arriba son inventadas y suenan con el metrónomo interno: servían
+ * para probar el juego sin depender de YouTube. Con canciones reales en el catálogo
+ * estorban más de lo que ayudan, así que no se muestran.
+ *
+ * Pon esto en true para que vuelvan a aparecer (útil para probar sin conexión).
+ */
+export const MOSTRAR_DEMO = false;
+
+/** Lo que el catálogo muestra de verdad. DEMO_CHARTS sigue existiendo para las pruebas. */
+export const CATALOGO_DEMO: Chart[] = MOSTRAR_DEMO ? DEMO_CHARTS : [];

@@ -15,6 +15,11 @@ import { getAllBests } from '@/lib/data/store';
 /** Normaliza para buscar y ordenar: sin tildes y sin "feat." (pedido común en YARG). */
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s*(\(|\[)?\s*(feat\.?|ft\.?|featuring)\s.*$/, '').trim();
 
+/** Mínimo de canciones para que una fila valga la pena. Con menos queda un hueco al lado. */
+const MIN_FILA = 4;
+/** Bajo este total, el catálogo entero se muestra como cuadrícula en vez de carruseles. */
+const MIN_CARRUSELES = 14;
+
 function Library() {
   const charts = useCharts();
   const router = useRouter();
@@ -67,18 +72,24 @@ function Library() {
   const rows = useMemo(() => {
     const out: { id: string; title: string; items: Chart[]; ranked?: boolean; color?: string }[] = [];
     const played = charts.filter((c) => bestOf(c.id) !== undefined);
-    if (played.length) out.push({ id: 'seguir', title: 'Sigue tocando', items: played });
-    out.push({ id: 'top', title: 'Top de la semana', items: charts.filter((c) => c.verified).slice(0, 10), ranked: true });
+    if (played.length >= MIN_FILA) out.push({ id: 'seguir', title: 'Sigue tocando', items: played });
+    const top = charts.filter((c) => c.verified).slice(0, 10);
+    if (top.length >= MIN_FILA) out.push({ id: 'top', title: 'Top de la semana', items: top, ranked: true });
     for (const g of GENRES) {
       const items = charts.filter((c) => genreOf(c.genre).id === g.id);
-      if (items.length) out.push({ id: g.id, title: g.name, items, color: g.color });
+      // Una fila de una o dos canciones es un hueco gigante al lado: esas se ven con los chips
+      if (items.length >= MIN_FILA) out.push({ id: g.id, title: g.name, items, color: g.color });
     }
     const community = charts.filter((c) => !c.verified);
-    if (community.length) out.push({ id: 'comunidad', title: 'Nuevos de la comunidad', items: community });
-    out.push({ id: 'tranqui', title: 'Para empezar tranqui', items: [...charts].sort((a, b) => a.bpm - b.bpm).slice(0, 8) });
+    if (community.length >= MIN_FILA) out.push({ id: 'comunidad', title: 'Nuevos de la comunidad', items: community });
+    const tranqui = [...charts].sort((a, b) => a.bpm - b.bpm).slice(0, 8);
+    if (tranqui.length >= MIN_FILA) out.push({ id: 'tranqui', title: 'Para empezar tranqui', items: tranqui });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [charts, bests]);
+
+  /** Con pocas canciones los carruseles sobran: se ve mejor una cuadrícula con todo. */
+  const pocas = charts.length < MIN_CARRUSELES;
 
   const h = featured[hero % Math.max(1, featured.length)];
   const hGenre = h ? genreOf(h.genre) : null;
@@ -157,10 +168,10 @@ function Library() {
       </div>
 
       {/* ---------- Filas o resultados ---------- */}
-      {filtering ? (
-        <section className="page col" style={{ gap: 16 }}>
+      {filtering || pocas || !rows.length ? (
+        <section className="page col" style={{ gap: 16, paddingTop: filtering ? undefined : 28 }}>
           <div className="row">
-            <h2 className="disp grow" style={{ fontSize: 30 }}>{genre ? GENRES.find((g) => g.id === genre)?.name : q ? `Resultados para “${q}”` : 'Canciones'}</h2>
+            <h2 className="disp grow" style={{ fontSize: 30 }}>{genre ? GENRES.find((g) => g.id === genre)?.name : q ? `Resultados para “${q}”` : filtering ? 'Canciones' : 'Todas las canciones'}</h2>
             <span className="muted small">{list.length} {list.length === 1 ? 'canción' : 'canciones'}</span>
           </div>
           {list.length ? (
@@ -188,7 +199,32 @@ function Row({ title, items, ranked, color, genreId, onGenre, bestOf }: {
   title: string; items: Chart[]; ranked?: boolean; color?: string; genreId?: string; onGenre: (g: string) => void; bestOf: (id: string) => number | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const scroll = (dir: number) => ref.current?.scrollBy({ left: dir * (ref.current.clientWidth * 0.8), behavior: 'smooth' });
+  // Las flechas solo tienen sentido si hay para dónde moverse, y estorban si no
+  const [puede, setPuede] = useState({ izq: false, der: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const mirar = () => setPuede({
+      izq: el.scrollLeft > 4,
+      der: el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+    });
+    mirar();
+    el.addEventListener('scroll', mirar, { passive: true });
+    const ro = new ResizeObserver(mirar);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', mirar); ro.disconnect(); };
+  }, [items.length]);
+
+  /** Avanza de tarjeta en tarjeta: así ninguna queda cortada por la mitad al final. */
+  const scroll = (dir: number) => {
+    const el = ref.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    const paso = card ? card.offsetWidth + 16 : 256;
+    const n = Math.max(1, Math.floor((el.clientWidth * 0.8) / paso));
+    el.scrollBy({ left: dir * n * paso, behavior: 'smooth' });
+  };
+
   return (
     <section className="lib-row" aria-label={title}>
       <div className="page row" style={{ paddingTop: 0, paddingBottom: 10 }}>
@@ -199,11 +235,11 @@ function Row({ title, items, ranked, color, genreId, onGenre, bestOf }: {
         {genreId && <button type="button" className="linkish small" onClick={() => onGenre(genreId)}>Ver todo →</button>}
       </div>
       <div className="lib-track-wrap">
-        <button type="button" className="lib-arrow left" aria-label="Anteriores" onClick={() => scroll(-1)}>‹</button>
+        {puede.izq && <button type="button" className="lib-arrow left" aria-label="Anteriores" onClick={() => scroll(-1)}>‹</button>}
         <div ref={ref} className="lib-track">
           {items.map((c, i) => <SongCard key={c.id} chart={c} rank={ranked ? i + 1 : undefined} best={bestOf(c.id)} />)}
         </div>
-        <button type="button" className="lib-arrow right" aria-label="Siguientes" onClick={() => scroll(1)}>›</button>
+        {puede.der && <button type="button" className="lib-arrow right" aria-label="Siguientes" onClick={() => scroll(1)}>›</button>}
       </div>
     </section>
   );

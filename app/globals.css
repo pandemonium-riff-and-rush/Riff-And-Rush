@@ -234,10 +234,13 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .lib-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: max(80px, calc((100vw - 1440px) / 2 + 80px)); padding: 6px max(80px, calc((100vw - 1440px) / 2 + 80px)) 18px; scrollbar-width: none; }
 .lib-track::-webkit-scrollbar { display: none; }
 .lib-track > * { scroll-snap-align: start; }
-.lib-arrow { position: absolute; top: 6px; bottom: 18px; width: 48px; z-index: 5; border: 0; cursor: pointer; color: #fff; font-size: 40px; line-height: 1; opacity: 0; transition: opacity .2s; }
+/* Visible apenas hay para dónde moverse: con opacity 0 nadie sabía que la fila seguía */
+.lib-arrow { position: absolute; top: 6px; bottom: 18px; width: 56px; z-index: 5; border: 0; cursor: pointer; color: #fff; font-size: 40px; line-height: 1; opacity: .75; transition: opacity .2s; }
+.lib-arrow:hover { opacity: 1; }
 .lib-arrow.left { left: 0; background: linear-gradient(90deg, rgba(10,9,22,.95), rgba(10,9,22,0)); }
 .lib-arrow.right { right: 0; background: linear-gradient(-90deg, rgba(10,9,22,.95), rgba(10,9,22,0)); }
 .lib-track-wrap:hover .lib-arrow { opacity: 1; }
+.lib-track > * { scroll-snap-stop: always; }
 .song-card { position: relative; }
 .song-card:hover { transform: translateY(-6px) scale(1.03); z-index: 3; }
 .song-rank { position: absolute; left: 10px; bottom: 4px; font-size: 64px; line-height: 1; color: rgba(10,9,22,.2); -webkit-text-stroke: 2px #fff; text-shadow: 3px 3px 0 rgba(0,0,0,.6); pointer-events: none; }

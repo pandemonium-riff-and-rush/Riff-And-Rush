@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { Chart } from '../chart/types';
-import { DEMO_CHARTS } from './demo';
+import { CATALOGO_DEMO } from './demo';
 import { getAllCharts } from './store';
 import { fetchPublishedCharts } from './cloud';
 
 /** Charts de demo en el primer render (igual en servidor y cliente) y luego los locales del navegador. */
 export function useCharts(): Chart[] {
-  const [charts, setCharts] = useState<Chart[]>(DEMO_CHARTS);
+  const [charts, setCharts] = useState<Chart[]>(CATALOGO_DEMO);
   useEffect(() => {
     const local = getAllCharts();
     setCharts(local);

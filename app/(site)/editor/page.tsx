@@ -51,6 +51,14 @@ function Editor() {
   const [chart, setChartState] = useState<Chart>(blankChart);
   const [diff, setDiff] = useState<DifficultyId>('expert');
   const [grid, setGrid] = useState(3);
+  /**
+   * Anclado: las notas caen justo en la grilla. Preciso: se mueven de a milisegundos,
+   * porque hay canciones que no tocan exactamente en el pulso y forzarlas suena mal.
+   */
+  const [modo, setModo] = useState<'anclado' | 'preciso'>('anclado');
+  /** Paso del modo preciso, en milisegundos. */
+  const [finoMs, setFinoMs] = useState(5);
+
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [videoInput, setVideoInput] = useState('');
   const [t, setT] = useState(0);
@@ -134,6 +142,8 @@ function Editor() {
   const hasTempoChanges = tmap.length > 1;
   // Paso de grilla en segundos según el BPM vigente en el cursor (0 = libre)
   const step = GRIDS[grid].v * (60 / bpmAt(tmap, Math.max(0, t)));
+  const preciso = modo === 'preciso';
+  const fino = finoMs / 1000;
   const videoId = chart.source.kind === 'youtube' ? chart.source.videoId : '';
   const lead = chart.leadInSec ?? 3;
   // Última nota de CUALQUIER dificultad: cortar antes de eso dejaría notas fuera
@@ -145,8 +155,19 @@ function Editor() {
   const tail = lastAny > 0 ? chart.durationSec - lastAny : 0;
   const endsAt = playEnd(chart);
 
-  const snap = useCallback((sec: number) => snapToGrid(tmap, sec, GRIDS[grid].v), [tmap, grid]);
-  const snapDelta = (d: number) => (step > 0 ? Math.round(d / step) * step : Math.round(d * 1000) / 1000);
+  const snap = useCallback(
+    (sec: number) => (preciso ? round3(Math.round(sec / fino) * fino) : snapToGrid(tmap, sec, GRIDS[grid].v)),
+    [tmap, grid, preciso, fino]
+  );
+  /**
+   * Cuánto se mueve una nota al arrastrarla.
+   * Anclado: salta de línea en línea de la grilla. Preciso: avanza de a milisegundos,
+   * para calzar una nota que de verdad no cae en el pulso. Alt hace lo contrario del modo activo.
+   */
+  const snapDelta = (d: number, libre = false) => {
+    if (libre ? !preciso : preciso) return round3(Math.round(d / fino) * fino);
+    return step > 0 ? Math.round(d / step) * step : round3(d);
+  };
 
   /* ---------- Historial + edición de notas ---------- */
   const commit = useCallback((fn: (items: { n: Note; s: boolean }[]) => { n: Note; s: boolean }[], opts?: { keepSel?: boolean }) => {
@@ -205,7 +226,10 @@ function Editor() {
     commit((it) => it.map((x) => (x.s ? { ...x, n: { ...x.n, hopo: allOn ? undefined : true } } : x)));
   };
   const laneSel = (lane: number) => sel.size && lane < dc.lanes && commit((it) => it.map((x) => (x.s ? { ...x, n: { ...x.n, lane } } : x)));
-  const quantizeSel = () => step > 0 && sel.size && commit((it) => it.map((x) => (x.s ? { ...x, n: { ...x.n, t: snap(x.n.t), len: x.n.len ? Math.max(step, snap(x.n.len)) : 0 } } : x)));
+  /** Devolver a la grilla lo que se movió a mano. Funciona aunque estés en modo preciso. */
+  const quantizeSel = () => step > 0 && sel.size && commit((it) => it.map((x) => (x.s
+    ? { ...x, n: { ...x.n, t: snapToGrid(tmap, x.n.t, GRIDS[grid].v), len: x.n.len ? Math.max(step, snapToGrid(tmap, x.n.len, GRIDS[grid].v)) : 0 } }
+    : x)));
   const selectAll = () => setSel(new Set(notes.map((_, i) => i)));
   const selectFromCursor = () => setSel(new Set(notes.flatMap((n, i) => (n.t >= t - 0.001 ? [i] : []))));
   const copySel = (cut = false) => {
@@ -353,11 +377,11 @@ function Editor() {
     const { x, y } = localXY(e);
     if (drag.mode === 'scrub') { seek(tOfX(x)); return; }
     if (drag.mode === 'box') { setDrag({ ...drag, x1: x, y1: y }); return; }
-    if (drag.mode === 'len') { setDrag({ ...drag, dlen: snapDelta((x - drag.x0) / pxs) }); return; }
+    if (drag.mode === 'len') { setDrag({ ...drag, dlen: snapDelta((x - drag.x0) / pxs, e.altKey) }); return; }
     const moved = drag.moved || Math.abs(x - drag.x0) > 3 || Math.abs(y - drag.y0) > 3;
     let dl = Math.round((y - drag.y0) / LANE_H);
     if (!canMoveLanes(dl)) dl = drag.dl;
-    setDrag({ ...drag, moved, dt: e.altKey ? round3((x - drag.x0) / pxs) : snapDelta((x - drag.x0) / pxs), dl });
+    setDrag({ ...drag, moved, dt: snapDelta((x - drag.x0) / pxs, e.altKey), dl });
   };
 
   const onUp = () => {
@@ -444,7 +468,8 @@ function Editor() {
       const laneKey = keys.slice(0, dc.lanes).indexOf(k);
       if (record && laneKey >= 0 && !e.repeat && !mod) { const sec = snap(chartTime()); commit((it) => [...it, { n: { t: sec, lane: laneKey, len: 0 }, s: false }], { keepSel: true }); return; }
       if (!sel.size) return;
-      const st = step || 0.01;
+      // En preciso las flechas mueven de a milisegundos; Alt siempre da el paso más fino
+      const st = preciso ? fino : step || 0.01;
       if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSel(); }
       else if (k === 'arrowleft') { e.preventDefault(); moveSel(-(e.altKey ? 0.001 : st) * (e.shiftKey ? 4 : 1)); }
       else if (k === 'arrowright') { e.preventDefault(); moveSel((e.altKey ? 0.001 : st) * (e.shiftKey ? 4 : 1)); }
@@ -827,6 +852,24 @@ function Editor() {
             <ToolBtn icon="fromCursor" label="Seleccionar desde el cursor hasta el final" onClick={selectFromCursor} />
           </div>
           <span className="grow" />
+          <div className="tgroup" title={preciso
+            ? 'Modo preciso: las notas se mueven de a milisegundos, sin pegarse a la grilla. Mantén Alt para pegarlas igual.'
+            : 'Modo anclado: las notas caen justo en la grilla. Mantén Alt para mover fino sin cambiar de modo.'}>
+            <button type="button" className="tool" aria-pressed={!preciso} onClick={() => setModo('anclado')}
+              style={{ fontWeight: 700, color: preciso ? 'var(--text-2)' : 'var(--text)', background: preciso ? 'transparent' : 'var(--bg-hover)' }}>
+              Anclado
+            </button>
+            <button type="button" className="tool" aria-pressed={preciso} onClick={() => setModo('preciso')}
+              style={{ fontWeight: 700, color: preciso ? '#0A0916' : 'var(--text-2)', background: preciso ? 'var(--gold)' : 'transparent' }}>
+              Preciso
+            </button>
+            {preciso && (
+              <select className="tool mono" value={finoMs} onChange={(e) => setFinoMs(Number(e.target.value))} aria-label="Paso del modo preciso"
+                style={{ background: 'transparent', color: 'var(--text)', border: 0 }}>
+                {[1, 2, 5, 10, 20].map((ms) => <option key={ms} value={ms}>{ms} ms</option>)}
+              </select>
+            )}
+          </div>
           <div className="tgroup" title="Grilla: a qué subdivisión se pegan las notas">
             <span style={{ padding: '0 4px 0 8px', color: 'var(--text-2)' }}><Icon name="grid" size={16} /></span>
             <select className="tool mono" value={grid} onChange={(e) => setGrid(Number(e.target.value))} aria-label="Grilla" style={{ background: 'transparent', color: 'var(--text)', border: 0 }}>
@@ -996,7 +1039,7 @@ function Editor() {
                 { t: 'Herramientas', items: [[<Kbd key="a">B</Kbd>, 'Lápiz (poner notas)'], [<Kbd key="a">V</Kbd>, 'Selección'], [<Kbd key="a">?</Kbd>, 'Esta ayuda']] },
                 { t: 'Seleccionar', items: [[<><Kbd>Ctrl</Kbd><Kbd>A</Kbd></>, 'Todo'], [<><Kbd>Ctrl</Kbd>+clic</>, 'Sumar / quitar'], [<Kbd key="a">Esc</Kbd>, 'Soltar']] },
                 { t: 'Editar', items: [[<><Kbd>Ctrl</Kbd><Kbd>Z</Kbd></>, 'Deshacer'], [<><Kbd>Ctrl</Kbd><Kbd>Y</Kbd></>, 'Rehacer'], [<><Kbd>Ctrl</Kbd><Kbd>C</Kbd><Kbd>X</Kbd><Kbd>V</Kbd></>, 'Copiar, cortar, pegar'], [<Kbd key="a">Supr</Kbd>, 'Borrar']] },
-                { t: 'Mover notas', items: [[<><Kbd>←</Kbd><Kbd>→</Kbd></>, 'Un paso de grilla'], [<><Kbd>Shift</Kbd>+<Kbd>←</Kbd></>, '4 pasos'], [<><Kbd>Alt</Kbd>+<Kbd>←</Kbd></>, '1 ms'], [<><Kbd>↑</Kbd><Kbd>↓</Kbd></>, 'Cambiar carril'], [<Kbd key="a">1–6</Kbd>, 'Carril exacto']] },
+                { t: 'Mover notas', items: [[<><Kbd>←</Kbd><Kbd>→</Kbd></>, 'Un paso (de grilla, o el fino en modo preciso)'], [<><Kbd>Shift</Kbd>+<Kbd>←</Kbd></>, '4 pasos'], [<><Kbd>Alt</Kbd>+<Kbd>←</Kbd></>, '1 ms'], [<><Kbd>Alt</Kbd>+arrastrar</>, 'Lo contrario del modo activo'], [<><Kbd>↑</Kbd><Kbd>↓</Kbd></>, 'Cambiar carril'], [<Kbd key="a">1–6</Kbd>, 'Carril exacto']] },
                 { t: 'Forma de la nota', items: [[<><Kbd>[</Kbd><Kbd>]</Kbd></>, 'Acortar / alargar'], [<Kbd key="a">H</Kbd>, 'HOPO'], [<Kbd key="a">Q</Kbd>, 'Ajustar a la grilla'], [<><Kbd>Ctrl</Kbd><Kbd>S</Kbd></>, 'Guardar']] }
               ].map((g) => (
                 <div key={g.t} className="col" style={{ gap: 8 }}>

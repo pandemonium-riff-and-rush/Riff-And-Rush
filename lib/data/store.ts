@@ -2,7 +2,7 @@
 
 import type { Chart, DifficultyId } from '../chart/types';
 import { DEFAULT_KEYS } from '../chart/types';
-import { DEMO_CHARTS } from './demo';
+import { CATALOGO_DEMO } from './demo';
 
 /**
  * Persistencia local (localStorage) mientras no hay backend.
@@ -68,7 +68,7 @@ function applyOverride(c: Chart, o?: VideoOverride): Chart {
 
 export function getAllCharts(): Chart[] {
   const o = getVideoOverrides();
-  return [...getLocalCharts(), ...DEMO_CHARTS].map((c) => applyOverride(c, o[c.id]));
+  return [...getLocalCharts(), ...CATALOGO_DEMO].map((c) => applyOverride(c, o[c.id]));
 }
 
 export function getChart(id: string): Chart | undefined {

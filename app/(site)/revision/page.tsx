@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { adminSetChart, fetchPendingCharts, fetchReports, REPORT_REASONS, seedHouseCharts, setReportStatus, type CloudChartRow, type ReportRow } from '@/lib/data/cloud';
-import { DEMO_CHARTS } from '@/lib/data/demo';
+import { CATALOGO_DEMO } from '@/lib/data/demo';
 import { Cover, DiffMinis } from '@/components/Cover';
 import { formatTime, playEnd } from '@/lib/chart/types';
 import { checkChart } from '@/lib/chart/checks';
@@ -71,7 +71,7 @@ export default function Review() {
           <span className="small muted">El antitrampa necesita las notas en el servidor para rehacer cada partida. Súbelas cuando cambies o agregues canciones del juego.</span>
         </div>
         <button className="btn btn-s btn-sm" type="button" disabled={busy === 'seed'} onClick={() => act('seed', async () => {
-          const r = await seedHouseCharts(DEMO_CHARTS);
+          const r = await seedHouseCharts(CATALOGO_DEMO);
           setMsg(r.ok ? `${r.done} canciones sincronizadas con el servidor.` : `Error al sincronizar: ${r.error}`);
         }, '')}>{busy === 'seed' ? 'Subiendo…' : 'Sincronizar ahora'}</button>
       </section>
