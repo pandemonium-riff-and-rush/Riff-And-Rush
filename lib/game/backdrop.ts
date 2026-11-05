@@ -28,7 +28,7 @@ export interface BackdropInput {
 interface Mote { x: number; y: number; r: number; vy: number; hue: number; a: number }
 interface Wave { life: number; strong: boolean }
 
-const MULT_COLORS = ['#A855F7', '#A855F7', '#3FA9FF', '#3DDC84', '#FF4D6D'];
+const MULT_COLORS = ['#e9e6de', '#e9e6de', '#3fa9ff', '#3ddc84', '#ff4d6d'];
 const BAND_COLORS = ['#3DDC84', '#FF4D6D', '#FFD23F', '#3FA9FF', '#FF8A3D', '#B26BFF'];
 
 function hexA(hex: string, a: number) {
@@ -64,7 +64,7 @@ export class Backdrop {
       this.lastBeat = beatN;
       this.waves.push({ life: 0, strong: beatN % 4 === 0 });
     }
-    const main = s.boosting ? '#F5B700' : MULT_COLORS[Math.min(4, Math.max(1, s.boosting ? s.mult / 2 : s.mult))];
+    const main = s.boosting ? '#ffc53d' : MULT_COLORS[Math.min(4, Math.max(1, s.boosting ? s.mult / 2 : s.mult))];
 
     // ---------- Espectro objetivo ----------
     let level = 0;
@@ -94,9 +94,9 @@ export class Backdrop {
 
     // ---------- Fondo ----------
     const g = ctx.createLinearGradient(0, 0, 0, BH);
-    g.addColorStop(0, '#04030F');
-    g.addColorStop(0.55, '#0B0624');
-    g.addColorStop(1, s.boosting ? '#1E1405' : '#12082E');
+    g.addColorStop(0, '#060607');
+    g.addColorStop(0.55, '#0d0d10');
+    g.addColorStop(1, s.boosting ? '#1a1405' : '#15151a');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, BW, BH);
 
@@ -124,7 +124,7 @@ export class Backdrop {
       const a = (0.05 + pulse * 0.18 + s.heat * 0.14 + level * 0.12) * (s.playing ? 1 : 0.5);
       const ex = ox + Math.sin(ang) * len, ey = Math.cos(ang) * len;
       const px = Math.cos(ang) * w, py = -Math.sin(ang) * w;
-      const col = i % 2 ? main : '#EC4899';
+      const col = i % 2 ? main : '#ff3d8b';
       const lg = ctx.createLinearGradient(ox, 0, ex, ey);
       lg.addColorStop(0, hexA(col, a * 1.6));
       lg.addColorStop(1, hexA(col, 0));
@@ -184,7 +184,7 @@ export class Backdrop {
       m.y -= m.vy * dt * (1 + level * 2);
       m.x += Math.sin(now * 0.8 + m.hue * 10) * 8 * dt;
       if (m.y < -20) Object.assign(m, this.newMote());
-      const col = m.hue < 0.33 ? main : m.hue < 0.66 ? '#EC4899' : '#F2F0FF';
+      const col = m.hue < 0.33 ? main : m.hue < 0.66 ? '#ff3d8b' : '#e9e6de';
       ctx.fillStyle = hexA(col, m.a * (0.4 + pulse * 0.6));
       ctx.beginPath(); ctx.arc(m.x, m.y, m.r * (1 + pulse * 0.5), 0, Math.PI * 2); ctx.fill();
     }

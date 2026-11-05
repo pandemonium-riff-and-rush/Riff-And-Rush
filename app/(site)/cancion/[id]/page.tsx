@@ -107,7 +107,7 @@ export default function SongDetail() {
           <div className="col" style={{ gap: 6 }}>
             <h1 className="disp" style={{ fontSize: 36, lineHeight: '40px' }}>{chart.title}</h1>
             <div style={{ fontSize: 17, color: 'var(--text-3)' }}>{chart.artist}</div>
-            <Link href={`/canciones?g=${genreOf(chart.genre).id}`} className="chip" style={{ alignSelf: 'flex-start', color: genreOf(chart.genre).color, borderColor: genreOf(chart.genre).color }}>{genreOf(chart.genre).name}</Link>
+            <Link href={`/canciones?g=${genreOf(chart.genre).id}`} className="chip" style={{ alignSelf: 'flex-start' }}>{genreOf(chart.genre).name}</Link>
           </div>
           <div className="panel row" style={{ padding: 12 }}>
             <span className="avatar" style={{ width: 40, height: 40, background: '#3DDC84', fontSize: 14 }}>{chart.charter.slice(0, 2).toUpperCase()}</span>
@@ -142,7 +142,7 @@ export default function SongDetail() {
             return (
               <button key={d.id} type="button" aria-pressed={on} onClick={() => setSel(d.id)} className="panel row"
                 style={{ padding: '14px 16px', gap: 16, cursor: 'pointer', color: 'var(--text)', textAlign: 'left', opacity: on ? 1 : 0.5, borderColor: on ? d.color : 'var(--border)', background: on ? `${d.color}1A` : 'var(--bg-surface)' }}>
-                <span style={{ width: 6, height: 40, borderRadius: 3, background: d.color }} />
+                <span style={{ width: 6, height: 40, borderRadius: 0, background: d.color }} />
                 <span className="col grow" style={{ gap: 3 }}>
                   <span style={{ fontSize: 17, fontWeight: 600 }}>{d.name}</span>
                   <span className="small muted">{chart.difficulties[d.id]!.lanes} carriles · {notes} notas{chart.difficulties[d.id]!.generated ? ' · generada' : ''}</span>
@@ -153,7 +153,7 @@ export default function SongDetail() {
               </button>
             );
           })}
-          <div className="row small" style={{ justifyContent: 'space-between', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 4 }}>
+          <div className="row small" style={{ justifyContent: 'space-between', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 0 }}>
             <span className="muted">Tu mejor en {info.name}</span><span className="mono" style={{ fontWeight: 700 }}>{best ? best.score.toLocaleString('es-CL') : '—'}</span>
           </div>
 
@@ -172,7 +172,7 @@ export default function SongDetail() {
             </label>
             {practiceOn && (
               <div className="col" style={{ gap: 8 }}>
-                <div style={{ position: 'relative', height: 36, borderRadius: 4, background: '#0F0C22', overflow: 'hidden' }} aria-hidden="true">
+                <div style={{ position: 'relative', height: 36, borderRadius: 0, background: '#0d0d10', overflow: 'hidden' }} aria-hidden="true">
                   {dens.map((v, i) => <span key={i} style={{ position: 'absolute', bottom: 0, left: `${(i / 60) * 100}%`, width: `${100 / 60}%`, height: `${8 + v * 92}%`, background: info.color, opacity: (i / 60) * dur >= pFrom && (i / 60) * dur <= pTo ? 0.9 : 0.25 }} />)}
                 </div>
                 <div className="row small"><span className="muted" style={{ width: 44 }}>Desde</span><input type="range" min={0} max={Math.max(0, dur - 2)} step={0.5} value={pFrom} onChange={(e) => { const v = Number(e.target.value); setPFrom(v); if (pTo < v + 2) setPTo(Math.min(dur, v + 2)); }} style={{ flex: 1 }} aria-label="Inicio del tramo" /><span className="mono" style={{ width: 40 }}>{formatTime(pFrom)}</span></div>
@@ -207,7 +207,7 @@ export default function SongDetail() {
               </div>
             ))}
           </div>
-          <div className="row" style={{ marginTop: 'auto', height: 52, padding: '0 12px', borderRadius: 3, background: 'rgba(168,85,247,0.14)', border: '1px solid var(--accent)' }}>
+          <div className="row" style={{ marginTop: 'auto', height: 52, padding: '0 12px', borderRadius: 0, background: 'rgba(255,61,139,0.14)', border: '1px solid var(--accent)' }}>
             <span className="avatar" style={{ width: 28, height: 28, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 11 }}>{me.initials}</span>
             <span className="grow" style={{ fontSize: 14, fontWeight: 600 }}>{myCloud ? `#${myCloud.pos} · ` : ''}Tú · {me.name}</span>
             <span className="mono" style={{ fontWeight: 700 }}>{myCloud ? myCloud.score.toLocaleString('es-CL') : best ? best.score.toLocaleString('es-CL') : 'Sin partidas'}</span>
@@ -236,7 +236,7 @@ export default function SongDetail() {
               <>
                 <div className="col" style={{ gap: 6 }}>
                   {REPORT_REASONS.map((r) => (
-                    <label key={r.id} className="row small" style={{ gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 4, border: `1px solid ${reason === r.id ? 'var(--accent)' : 'var(--border)'}`, background: reason === r.id ? 'rgba(168,85,247,0.12)' : undefined }}>
+                    <label key={r.id} className="row small" style={{ gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 0, border: `1px solid ${reason === r.id ? 'var(--accent)' : 'var(--border)'}`, background: reason === r.id ? 'rgba(255,61,139,0.12)' : undefined }}>
                       <input type="radio" name="reason" checked={reason === r.id} onChange={() => setReason(r.id)} style={{ accentColor: 'var(--accent)' }} />{r.label}
                     </label>
                   ))}

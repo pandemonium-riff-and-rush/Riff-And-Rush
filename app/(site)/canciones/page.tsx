@@ -105,8 +105,8 @@ function Library() {
           <div className="lib-hero-shade" />
           <div className="page col lib-hero-body" style={{ gap: 14 }}>
             <div className="row" style={{ gap: 10 }}>
-              <span className="chip" style={{ color: hGenre!.color, borderColor: hGenre!.color }}>{hGenre!.name}</span>
-              {h.verified && <span className="chip" style={{ color: 'var(--ok)', borderColor: 'rgba(61,220,132,0.5)' }}>✓ Verificado</span>}
+              <span className="chip">{hGenre!.name}</span>
+              {h.verified && <span className="chip" style={{ color: 'var(--ok)', borderColor: 'rgba(70,208,127,.45)' }}>✓ Verificado</span>}
             </div>
             <h1 className="disp" style={{ fontSize: 'clamp(44px, 6vw, 76px)', lineHeight: 1, textShadow: '4px 4px 0 #000', maxWidth: 720 }}>{h.title}</h1>
             <div style={{ fontSize: 20, color: 'var(--text-2)' }}>{h.artist} <span className="muted small">· chart de {h.charter}</span></div>
@@ -118,7 +118,7 @@ function Library() {
             </div>
             {featured.length > 1 && (
               <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                {featured.map((f, i) => <button key={f.id} type="button" aria-label={`Destacada ${i + 1}`} onClick={() => setHero(i)} style={{ width: i === hero ? 28 : 10, height: 6, borderRadius: 3, border: 0, cursor: 'pointer', background: i === hero ? 'var(--accent)' : 'rgba(255,255,255,0.3)', transition: 'width .3s' }} />)}
+                {featured.map((f, i) => <button key={f.id} type="button" aria-label={`Destacada ${i + 1}`} onClick={() => setHero(i)} style={{ width: i === hero ? 28 : 10, height: 6, borderRadius: 0, border: 0, cursor: 'pointer', background: i === hero ? 'var(--accent)' : 'rgba(255,255,255,0.3)', transition: 'width .3s' }} />)}
               </div>
             )}
           </div>
@@ -144,8 +144,7 @@ function Library() {
           <div className="row lib-chips" role="tablist" aria-label="Categorías">
             <button type="button" role="tab" aria-selected={!genre} className="lib-chip" onClick={() => pickGenre(null)}>Todas</button>
             {presentGenres.map((g) => (
-              <button key={g.id} type="button" role="tab" aria-selected={genre === g.id} className="lib-chip" onClick={() => pickGenre(genre === g.id ? null : g.id)}
-                style={genre === g.id ? { background: g.color, borderColor: g.color, color: '#0A0916' } : { borderColor: `${g.color}66` }}>
+              <button key={g.id} type="button" role="tab" aria-selected={genre === g.id} className="lib-chip" onClick={() => pickGenre(genre === g.id ? null : g.id)}>
                 {g.name}
               </button>
             ))}

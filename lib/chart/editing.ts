@@ -11,7 +11,7 @@ export function blankChart(): Chart {
     id: 'local-' + Date.now().toString(36),
     title: 'Nueva canción', artist: 'Artista', charter: 'invitado', genre: 'Rock',
     bpm: 120, offsetMs: 0, leadInSec: 3, durationSec: 180, source: { kind: 'metronome' },
-    cover: { bg: '#2B1A5E', fg: '#A855F7' },
+    cover: { bg: '#141416', fg: '#ff3d8b' },
     difficulties: { expert: { lanes: 5, notes: [] } }, version: 1
   };
 }

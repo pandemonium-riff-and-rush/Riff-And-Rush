@@ -521,7 +521,7 @@ function Editor() {
     const ctx = cv.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#0F0C22';
+    ctx.fillStyle = '#0d0d10';
     ctx.fillRect(0, 0, w, h);
     const lh = (h - 4) / dc.lanes;
     for (const n of notes) {
@@ -731,7 +731,7 @@ function Editor() {
       {/* ---------- Fila de arriba: video · vista del juego · ajustes ---------- */}
       <div className="row" style={{ alignItems: 'stretch', gap: 16, flexWrap: 'wrap' }}>
         <section className="panel col" style={{ width: 416, padding: 16, gap: 12 }}>
-          <div style={{ width: 384, height: 216, background: '#000', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ width: 384, height: 216, background: '#000', border: '1px solid var(--border)', borderRadius: 0, overflow: 'hidden' }}>
             {videoId ? <div id="editor-yt" /> : <div className="col muted small" style={{ height: '100%', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24, gap: 10 }}><Icon name="metronome" size={28} />Sin video: se usa el metrónomo. Pega un link de YouTube para sincronizar el chart.</div>}
           </div>
           <div className="row">
@@ -803,7 +803,7 @@ function Editor() {
             const x = chart.difficulties[d.id];
             return (
               <button key={d.id} type="button" onClick={() => { setDiff(d.id); setSel(new Set()); }} className="row small"
-                style={{ gap: 10, padding: '8px 10px', borderRadius: 4, cursor: 'pointer', textAlign: 'left', color: 'var(--text)', background: diff === d.id ? `${d.color}1F` : 'transparent', border: `1px solid ${diff === d.id ? d.color : 'transparent'}` }}>
+                style={{ gap: 10, padding: '8px 10px', borderRadius: 0, cursor: 'pointer', textAlign: 'left', color: 'var(--text)', background: diff === d.id ? `${d.color}1F` : 'transparent', border: `1px solid ${diff === d.id ? d.color : 'transparent'}` }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, opacity: x ? 1 : 0.3 }} />
                 <span className="grow" style={{ fontWeight: diff === d.id ? 700 : 500 }}>{d.name}</span>
                 <span className="muted">{x ? `${x.generated ? 'auto' : 'a mano'} · ${x.notes.length}` : 'vacía'}</span>
@@ -860,7 +860,7 @@ function Editor() {
               Anclado
             </button>
             <button type="button" className="tool" aria-pressed={preciso} onClick={() => setModo('preciso')}
-              style={{ fontWeight: 700, color: preciso ? '#0A0916' : 'var(--text-2)', background: preciso ? 'var(--gold)' : 'transparent' }}>
+              style={{ fontWeight: 700, color: preciso ? '#0b0b0c' : 'var(--text-2)', background: preciso ? 'var(--gold)' : 'transparent' }}>
               Preciso
             </button>
             {preciso && (
@@ -890,7 +890,7 @@ function Editor() {
         )}
 
         <div ref={tlRef} onPointerDown={onBgDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => setDrag(null)} onContextMenu={(e) => e.preventDefault()}
-          style={{ position: 'relative', height: tlH, background: '#0F0C22', cursor: drag?.mode === 'move' ? 'grabbing' : tool === 'pencil' ? 'crosshair' : 'default', overflow: 'hidden', userSelect: 'none', touchAction: 'none' }}>
+          style={{ position: 'relative', height: tlH, background: '#0d0d10', cursor: drag?.mode === 'move' ? 'grabbing' : tool === 'pencil' ? 'crosshair' : 'default', overflow: 'hidden', userSelect: 'none', touchAction: 'none' }}>
           {Array.from({ length: dc.lanes }).map((_, i) => (
             <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: RULER_H + i * LANE_H, height: LANE_H, background: i % 2 ? 'rgba(255,255,255,0.02)' : undefined, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ position: 'absolute', left: LABEL_W, right: 0, top: LANE_H / 2, height: 2, background: `${LANE_COLORS[i]}33` }} />
@@ -900,7 +900,7 @@ function Editor() {
           {gridLines.map((l, i) => (
             <div key={i} style={{ position: 'absolute', top: l.kind === 'bar' ? 0 : RULER_H, bottom: 0, left: l.x, width: l.kind === 'bar' ? 2 : 1, background: `rgba(255,255,255,${l.kind === 'bar' ? 0.18 : l.kind === 'beat' ? 0.08 : 0.035})` }} />
           ))}
-          <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: RULER_H, background: 'rgba(10,9,22,0.85)', borderBottom: '1px solid var(--border)', cursor: 'ew-resize' }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: RULER_H, background: 'rgba(11,11,12,0.88)', borderBottom: '1px solid var(--border)', cursor: 'ew-resize' }}>
             {gridLines.filter((l) => l.bar !== undefined && (l.bar - 1) % barLabelEvery === 0).map((l) => (
               <span key={l.bar} className="mono" style={{ position: 'absolute', left: l.x + 5, top: 3, fontSize: 11, lineHeight: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                 {l.bar}<span style={{ opacity: 0.55, marginLeft: 6 }}>{formatTime(l.sec)}</span>
@@ -923,45 +923,45 @@ function Editor() {
                 {len > 0 && <div style={{ position: 'absolute', left: x, top: cy - 5, width: len * pxs, height: 10, borderRadius: 5, background: `${col}${s ? 'CC' : '80'}`, boxShadow: s ? `0 0 10px ${col}` : undefined, pointerEvents: 'none' }} />}
                 {s && !moving && (
                   <div onPointerDown={(e) => onLenDown(e, i)} title="Arrastra para alargar"
-                    style={{ position: 'absolute', left: x + Math.max(len * pxs, gem / 2) - 4, top: cy - 9, width: 10, height: 18, borderRadius: 3, background: '#F2F0FF', cursor: 'ew-resize', opacity: 0.9 }} />
+                    style={{ position: 'absolute', left: x + Math.max(len * pxs, gem / 2) - 4, top: cy - 9, width: 10, height: 18, borderRadius: 0, background: '#e9e6de', cursor: 'ew-resize', opacity: 0.9 }} />
                 )}
                 <div role="button" aria-label={`Nota carril ${n.lane + 1} en ${n.t.toFixed(2)} s`} aria-pressed={s}
                   onPointerDown={(e) => onNoteDown(e, i)} onContextMenu={(e) => onNoteContext(e, i)}
                   style={{ position: 'absolute', left: x - gem / 2, top: cy - gem / 2, width: gem, height: gem, borderRadius: '50%', cursor: 'grab',
                     background: n.hopo ? '#FFFFFF' : `radial-gradient(circle at 40% 35%, #fff 0 10%, ${col} 45%, ${col}AA 100%)`,
                     border: `2px solid ${s ? '#FFFFFF' : 'rgba(255,255,255,0.55)'}`,
-                    boxShadow: (n.hopo ? `inset 0 0 0 ${gem * 0.22}px ${col}` : '') + (s ? `${n.hopo ? ',' : ''}0 0 0 3px #A855F7, 0 0 16px ${col}` : ''),
+                    boxShadow: (n.hopo ? `inset 0 0 0 ${gem * 0.22}px ${col}` : '') + (s ? `${n.hopo ? ',' : ''}0 0 0 3px #e9e6de` : ''),
                     zIndex: s ? 2 : 1 }} />
               </div>
             );
           })}
-          <div style={{ position: 'absolute', left: 0, top: RULER_H, width: LABEL_W, bottom: 0, background: '#14122A', borderRight: '1px solid var(--border)', zIndex: 3 }}>
+          <div style={{ position: 'absolute', left: 0, top: RULER_H, width: LABEL_W, bottom: 0, background: '#141416', borderRight: '1px solid var(--border)', zIndex: 3 }}>
             {Array.from({ length: dc.lanes }).map((_, i) => (
               <div key={i} className="mono" style={{ height: LANE_H, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: LANE_COLORS[i] }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: LANE_COLORS[i] }} />{(keys[i] ?? '').toUpperCase()}
               </div>
             ))}
           </div>
-          <div style={{ position: 'absolute', left: 0, top: 0, width: LABEL_W, height: RULER_H, background: '#14122A', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', zIndex: 3 }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, width: LABEL_W, height: RULER_H, background: '#141416', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', zIndex: 3 }} />
           {playX >= LABEL_W && playX <= tlWidth && (
             <div style={{ position: 'absolute', top: 0, bottom: 0, left: playX - 1, width: 2, background: 'var(--hot)', boxShadow: '0 0 10px rgba(236,72,153,0.8)', pointerEvents: 'none', zIndex: 4 }}>
               <div style={{ position: 'absolute', top: 0, left: -6, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '10px solid var(--hot)' }} />
             </div>
           )}
           {box && (
-            <div style={{ position: 'absolute', left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0), border: '1px solid #C084FC', background: 'rgba(168,85,247,0.15)', pointerEvents: 'none', zIndex: 5 }} />
+            <div style={{ position: 'absolute', left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0), border: '1px solid #ff3d8b', background: 'rgba(255,61,139,0.16)', pointerEvents: 'none', zIndex: 5 }} />
           )}
         </div>
 
         {/* Minimapa */}
         <div style={{ position: 'relative', borderTop: '1px solid var(--border)' }}>
           <canvas ref={miniRef} onPointerDown={onMini} onPointerMove={onMini} style={{ width: '100%', height: 28, display: 'block', cursor: 'pointer' }} aria-label="Mapa de la canción" />
-          <div style={{ position: 'absolute', top: 0, height: 28, left: `${Math.max(0, (viewStart / total) * 100)}%`, width: `${Math.min(100, (visibleSec / total) * 100)}%`, border: '1px solid #C084FC', background: 'rgba(168,85,247,0.12)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, height: 28, left: `${Math.max(0, (viewStart / total) * 100)}%`, width: `${Math.min(100, (visibleSec / total) * 100)}%`, border: '1px solid #ff3d8b', background: 'rgba(255,61,139,0.12)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: 0, height: 28, left: `${(Math.max(0, t) / total) * 100}%`, width: 2, background: 'var(--hot)', pointerEvents: 'none' }} />
         </div>
 
         {/* Barra 2 (justo debajo): lo que se puede hacer con la selección */}
-        <div className="toolbar" style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', minHeight: 58, background: sel.size ? 'rgba(168,85,247,0.07)' : undefined }}>
+        <div className="toolbar" style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', minHeight: 58, background: sel.size ? 'rgba(255,61,139,0.07)' : undefined }}>
           {sel.size > 0 ? (
             <>
               <span className="chip" style={{ color: 'var(--accent-link)', borderColor: 'var(--accent)' }}>
@@ -974,7 +974,7 @@ function Editor() {
               <div className="tgroup" title="Carril (teclas 1–6 o ↑/↓)">
                 {Array.from({ length: dc.lanes }).map((_, i) => (
                   <button key={i} type="button" onClick={() => laneSel(i)} className="mono" aria-label={`Mover a carril ${i + 1}`}
-                    style={{ width: 30, height: 30, borderRadius: 4, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: `2px solid ${LANE_COLORS[i]}`, background: selNote?.lane === i ? LANE_COLORS[i] : 'transparent', color: selNote?.lane === i ? '#0A0916' : LANE_COLORS[i] }}>{i + 1}</button>
+                    style={{ width: 30, height: 30, borderRadius: 0, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: `2px solid ${LANE_COLORS[i]}`, background: selNote?.lane === i ? LANE_COLORS[i] : 'transparent', color: selNote?.lane === i ? '#0b0b0c' : LANE_COLORS[i] }}>{i + 1}</button>
                 ))}
               </div>
               <div className="tgroup">
@@ -1058,7 +1058,7 @@ function Editor() {
         <div className="overlay" onClick={() => setImportOpen(false)}>
           <div role="dialog" aria-label="Importar chart" className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="disp" style={{ fontSize: 28 }}>Importar chart</h2>
-            <label className="col" style={{ alignItems: 'center', gap: 10, padding: 28, borderRadius: 4, border: '2px dashed var(--border-strong)', background: '#0F0C22', cursor: 'pointer', textAlign: 'center' }}
+            <label className="col" style={{ alignItems: 'center', gap: 10, padding: 28, borderRadius: 0, border: '2px dashed var(--border-strong)', background: '#0d0d10', cursor: 'pointer', textAlign: 'center' }}
               onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) importFile(f); }}>
               <Icon name="upload" size={32} />
               <span style={{ fontSize: 16, fontWeight: 600 }}>Arrastra un archivo .chart o .mid</span>

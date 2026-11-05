@@ -407,7 +407,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         s = scorerRef.current;
         eventsSeen.current = 0;
         clockRef.current?.resume(practice.from - 2);
-        setBanner({ text: `Otra vez · vuelta ${loops.current + 1}`, color: '#C084FC', key: ms });
+        setBanner({ text: `Otra vez · vuelta ${loops.current + 1}`, color: '#ff3d8b', key: ms });
       }
       if (p === 'playing' || p === 'countdown') {
         if (auto) {
@@ -444,12 +444,12 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         setJudge({ text: JUDGE_TEXT[ev.judgment], sub, color: JUDGE_COLOR[ev.judgment], key: ms });
       }
       // Avisos grandes: rachas, energía y modo leyenda
-      if (s.combo >= 50 && Math.floor(s.combo / 50) > Math.floor(prevCombo / 50)) setBanner({ text: `¡${Math.floor(s.combo / 50) * 50} seguidas!`, color: '#F5B700', key: ms });
+      if (s.combo >= 50 && Math.floor(s.combo / 50) > Math.floor(prevCombo / 50)) setBanner({ text: `¡${Math.floor(s.combo / 50) * 50} seguidas!`, color: '#ffc53d', key: ms });
       if (prevCombo >= 20 && s.combo === 0) setBanner({ text: 'Racha perdida', color: '#FF4D6D', key: ms });
       prevCombo = s.combo;
-      if (s.boosting && !prevBoost) setBanner({ text: '¡Modo leyenda!', color: '#F5B700', key: ms });
+      if (s.boosting && !prevBoost) setBanner({ text: '¡Modo leyenda!', color: '#ffc53d', key: ms });
       prevBoost = s.boosting;
-      if (s.energy >= 0.5 && !s.boosting && !energyHinted) { energyHinted = true; setBanner({ text: 'Energía lista · Espacio', color: '#C084FC', key: ms }); }
+      if (s.energy >= 0.5 && !s.boosting && !energyHinted) { energyHinted = true; setBanner({ text: 'Energía lista · Espacio', color: '#ff3d8b', key: ms }); }
       if (s.energy < 0.5) energyHinted = false;
 
       drawHighway(ctx, {
@@ -561,33 +561,33 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   }, []);
 
   const fmt = (v: number) => Math.floor(v).toLocaleString('es-CL');
-  const rankCol = hud.rank === 'S' ? '#F5B700' : hud.rank === 'A' ? '#3DDC84' : hud.rank === 'B' ? '#3FA9FF' : '#FF4D6D';
+  const rankCol = hud.rank === 'S' ? '#ffc53d' : hud.rank === 'A' ? '#46d07f' : hud.rank === 'B' ? '#3fa9ff' : '#ff5a5a';
   const keysShown = settings.keys.slice(0, lanes);
-  const multColor = hud.boosting ? '#F5B700' : (['#A855F7', '#A855F7', '#3FA9FF', '#3DDC84', '#FF4D6D'][Math.min(4, hud.mult)]);
+  const multColor = hud.boosting ? '#ffc53d' : (['#e9e6de', '#e9e6de', '#3fa9ff', '#3ddc84', '#ff4d6d'][Math.min(4, hud.mult)]);
 
   /** Todo lo que va encima de la autopista (textos, cuentas, pausa). `c` = pantalla chica (teléfono). */
   const renderOverlays = (g: Geo, c: boolean) => (
     <>
           {c && phase === 'waiting' && (
-            <div role="status" style={{ position: 'absolute', left: 8, right: 8, top: 8, padding: '8px 10px', borderRadius: 3, background: 'rgba(30,24,6,0.92)', border: '1px solid rgba(255,210,63,0.6)', color: 'var(--warn)', fontSize: 13 }}>
+            <div role="status" style={{ position: 'absolute', left: 8, right: 8, top: 8, padding: '8px 10px', borderRadius: 0, background: 'rgba(28,22,4,0.94)', border: '1px solid rgba(255,197,61,0.55)', color: 'var(--warn)', fontSize: 13 }}>
               <b>{hasPlayed.current ? 'Esperando al video' : 'Preparando el video'}</b> · {hasPlayed.current ? 'puede haber un anuncio; sigue solo.' : 'si hay un anuncio, pasa ahora.'}
               {stuck && <> <Link href={`/cancion/${chart.id}`}>Volver</Link></>}
             </div>
           )}
           {hud.combo >= 10 && phase === 'playing' && (
             <div style={{ position: 'absolute', left: 0, top: c ? Math.round(g.hit * 0.4) : 236, width: g.w, textAlign: 'center', pointerEvents: 'none' }}>
-              <div key={Math.floor(hud.combo / 10)} className="disp combo-pop" style={{ fontSize: c ? 44 : 68, lineHeight: c ? '44px' : '68px', color: '#fff', textShadow: `4px 4px 0 #000, 0 0 30px ${multColor}` }}>{hud.combo}</div>
-              <div className="marker" style={{ fontSize: c ? 15 : 20, color: hud.boosting ? 'var(--gold)' : multColor, transform: 'rotate(-4deg)', textShadow: '2px 2px 0 #000' }}>{hud.boosting ? '¡Modo leyenda!' : hud.mult >= 4 ? '¡En llamas!' : '¡Combo!'}</div>
+              <div key={Math.floor(hud.combo / 10)} className="disp combo-pop" style={{ fontSize: c ? 44 : 68, lineHeight: c ? '44px' : '68px', color: '#fff', textShadow: '4px 4px 0 #000' }}>{hud.combo}</div>
+              <div className="cond" style={{ fontSize: c ? 14 : 18, letterSpacing: '.08em', color: hud.boosting ? 'var(--gold)' : multColor, textShadow: '2px 2px 0 #000' }}>{hud.boosting ? 'MODO LEYENDA' : hud.mult >= 4 ? 'EN LLAMAS' : 'COMBO'}</div>
             </div>
           )}
           {banner && (phase === 'playing' || phase === 'countdown') && (
             // Arriba, en el fondo de la autopista (donde las notas aún son chicas) y con placa oscura: no tapa lo que viene
-            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, padding: c ? '3px 12px' : '4px 18px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: `1px solid ${banner.color}`, fontSize: c ? 18 : 30, lineHeight: c ? '22px' : '36px', color: banner.color, textShadow: `3px 3px 0 #000, 0 0 18px ${banner.color}`, pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
+            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, padding: c ? '3px 12px' : '4px 18px', borderRadius: 0, background: 'rgba(11,11,12,0.82)', border: `1px solid ${banner.color}`, fontSize: c ? 18 : 30, lineHeight: c ? '22px' : '36px', color: banner.color, textShadow: '3px 3px 0 #000', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
           )}
           {judge && (phase === 'playing' || phase === 'countdown') && (
             <div key={judge.key} className="judge-pop" style={{ position: 'absolute', left: g.w / 2, top: g.hit - (c ? 72 : 100), textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
               <div className="disp" style={{ fontSize: c ? 24 : 34, lineHeight: c ? '26px' : '36px', color: judge.color, textShadow: `3px 3px 0 #000, 0 0 16px ${judge.color}` }}>{judge.text}</div>
-              {judge.sub && <div className="cond" style={{ fontSize: 14, letterSpacing: '0.12em', color: '#CFCAEA', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
+              {judge.sub && <div className="cond" style={{ fontSize: 14, letterSpacing: '0.12em', color: '#c3bfb5', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
             </div>
           )}
 
@@ -600,14 +600,14 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           )}
 
           {phase === 'countdown' && !afterPause.current && (
-            <div className="cond" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, transform: 'translateX(-50%)', padding: '4px 14px', borderRadius: 4, background: 'rgba(10,9,22,0.72)', border: '1px solid var(--border)', fontSize: 14, letterSpacing: '0.14em', color: 'var(--text-2)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+            <div className="cond" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, transform: 'translateX(-50%)', padding: '4px 14px', borderRadius: 0, background: 'rgba(11,11,12,0.82)', border: '1px solid var(--border)', fontSize: 14, letterSpacing: '0.14em', color: 'var(--text-2)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
               LA CANCIÓN PARTE EN {cd} S
             </div>
           )}
           {(phase === 'resuming' || (phase === 'countdown' && afterPause.current)) && (
             <div style={{ position: 'absolute', left: 0, top: c ? Math.round(g.h * 0.18) : 120, width: g.w, textAlign: 'center', pointerEvents: 'none' }}>
               {phase === 'resuming' && <div className="cond" style={{ fontSize: 20, color: 'var(--text-3)' }}>Retrocediendo 2 s</div>}
-              <div key={cd} className="disp cd-pop" style={{ fontSize: c ? 96 : 150, lineHeight: c ? '96px' : '150px', textShadow: '6px 6px 0 #000, 0 0 50px rgba(168,85,247,0.8)' }}>{cd}</div>
+              <div key={cd} className="disp cd-pop" style={{ fontSize: c ? 96 : 150, lineHeight: c ? '96px' : '150px', textShadow: '6px 6px 0 #000, 0 0 50px rgba(255,61,139,0.8)' }}>{cd}</div>
             </div>
           )}
           {(phase === 'intro' || phase === 'loading') && (
@@ -628,7 +628,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
                 <div className="disp" style={{ fontSize: 44, lineHeight: '44px' }}>Pausa</div>
                 <div className="small muted">{chart.title} · {info.name} · {formatTime(hud.t)}</div>
                 {tamper && (
-                  <div className="small" style={{ padding: '10px 12px', borderRadius: 3, background: 'rgba(30,24,6,0.9)', border: '1px solid rgba(255,210,63,0.5)', color: '#EADFA8' }}>
+                  <div className="small" style={{ padding: '10px 12px', borderRadius: 0, background: 'rgba(28,22,4,0.94)', border: '1px solid rgba(255,197,61,0.5)', color: '#EADFA8' }}>
                     {tamper === 'pause' ? 'Pausaste el video desde el reproductor.' : 'Moviste el video desde el reproductor.'} Acá se pausa con este botón o con <b>Esc</b>: al continuar el video vuelve solo al segundo correcto.
                   </div>
                 )}
@@ -685,7 +685,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {chart.title} <span style={{ fontWeight: 500, color: info.color }}>· {info.name}{tag}</span>
         </div>
-        <div style={{ height: 4, borderRadius: 2, background: 'var(--bg-hover)', overflow: 'hidden' }}><div style={{ height: 4, width: `${pct}%`, background: 'var(--accent)' }} /></div>
+        <div style={{ height: 4, borderRadius: 0, background: 'var(--ink-3)', overflow: 'hidden' }}><div style={{ height: 4, width: `${pct}%`, background: 'var(--accent)' }} /></div>
       </div>
       <div className="disp" style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{fmt(hud.score)}</div>
     </div>
@@ -698,11 +698,11 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       <span className="mono small" style={{ color: 'var(--ok)', minWidth: 52 }}>{(hud.acc * 100).toFixed(1).replace('.', ',')}%</span>
       <button type="button" aria-label={`Energía ${Math.round(hud.energy * 100)} %. Toca para activar el modo Leyenda`}
         onPointerDown={(e) => { e.preventDefault(); scorerRef.current.activateBoost(now()); }}
-        style={{ flex: 1, height: 26, position: 'relative', borderRadius: 13, overflow: 'hidden', cursor: 'pointer', background: 'rgba(10,9,22,0.9)', border: `1px solid ${energyReady ? 'var(--gold)' : 'var(--border)'}`, touchAction: 'none', padding: 0 }}>
-        <span className={energyReady ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${hud.energy * 100}%`, background: 'linear-gradient(90deg,#7E22CE,#EC4899 60%,#F5B700)' }} />
+        style={{ flex: 1, height: 26, position: 'relative', borderRadius: 0, overflow: 'hidden', cursor: 'pointer', background: 'rgba(11,11,12,0.92)', border: `1px solid ${energyReady ? 'var(--gold)' : 'var(--line-2)'}`, touchAction: 'none', padding: 0 }}>
+        <span className={energyReady ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${hud.energy * 100}%`, background: energyReady || hud.boosting ? '#ffc53d' : '#ff3d8b' }} />
         <span className="cond" style={{ position: 'relative', fontSize: 11, letterSpacing: '0.12em', color: energyReady || hud.boosting ? '#fff' : 'var(--text-2)' }}>{hud.boosting ? 'LEYENDA' : energyReady ? 'TOCA: LEYENDA' : 'ENERGÍA'}</span>
       </button>
-      <span className="disp" style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: rankCol, border: `2px solid ${rankCol}` }}>{hud.rank}</span>
+      <span className="disp" style={{ width: 30, height: 30, borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: rankCol, border: `2px solid ${rankCol}` }}>{hud.rank}</span>
     </div>
   );
   const mPads = (
@@ -711,7 +711,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         <button key={i} type="button" aria-label={`Carril ${i + 1}`} className="pad"
           onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); if (phaseRef.current === 'intro') start(); else hitLane(i, true); }}
           onPointerUp={() => hitLane(i, false)} onPointerCancel={() => hitLane(i, false)} onContextMenu={(e) => e.preventDefault()}
-          style={{ touchAction: 'none', borderRadius: 12, border: `2px solid ${LANE_COLORS[i]}`, background: `${LANE_COLORS[i]}26`, boxShadow: `inset 0 -6px 0 ${LANE_COLORS[i]}55`, cursor: 'pointer' }} />
+          style={{ touchAction: 'none', borderRadius: 0, border: `2px solid ${LANE_COLORS[i]}`, background: `${LANE_COLORS[i]}22`, cursor: 'pointer' }} />
       ))}
     </div>
   );
@@ -726,22 +726,22 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   );
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: lay.mobile ? 'radial-gradient(120% 70% at 50% 100%, #1C1238 0%, #05041A 70%)' : '#05041A', overflow: 'hidden', userSelect: 'none', WebkitUserSelect: 'none', touchAction: lay.mobile ? 'none' : undefined }}>
+    <div style={{ position: 'fixed', inset: 0, background: lay.mobile ? 'radial-gradient(120% 70% at 50% 100%, #15151a 0%, #060607 70%)' : '#060607', overflow: 'hidden', userSelect: 'none', WebkitUserSelect: 'none', touchAction: lay.mobile ? 'none' : undefined }}>
       {!lay.mobile ? (
       <div style={{ position: 'absolute', left: '50%', top: '50%', width: 1440, height: 900, transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', color: 'var(--text)' }}>
         {/* Fondo animado: en modo liviano se reemplaza por un degradado fijo */}
         {lowFx
-          ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'radial-gradient(80% 60% at 50% 70%, #1C1238 0%, #05041A 70%)' }} />
+          ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'radial-gradient(80% 60% at 50% 70%, #15151a 0%, #060607 70%)' }} />
           : <canvas ref={bgRef} aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: BW, height: BH }} />}
 
         {/* Columna izquierda */}
         <aside style={{ position: 'absolute', left: 32, top: 36, width: 280, height: 836, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <div className="disp" style={{ fontSize: 76, lineHeight: '72px', textShadow: '4px 4px 0 #000' }}>Riff<span style={{ color: 'var(--accent)', textShadow: '4px 4px 0 #000, 0 0 30px rgba(168,85,247,0.6)' }}>&amp;</span></div>
+            <div className="disp" style={{ fontSize: 76, lineHeight: '72px', textShadow: '4px 4px 0 #000' }}>Riff<span style={{ color: 'var(--spot)', textShadow: '4px 4px 0 #000' }}>&amp;</span></div>
             <div className="disp" style={{ fontSize: 84, lineHeight: '80px', transform: 'rotate(-4deg)', transformOrigin: 'left center', textShadow: '4px 4px 0 #000' }}>Rush</div>
             <div className="cond" style={{ marginTop: 10, fontSize: 13, letterSpacing: '0.24em', color: 'var(--text-2)' }}>Toca · Compite · Repite</div>
           </div>
-          <div className="panel" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12, background: 'rgba(20,18,42,0.88)' }}>
+          <div className="panel" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12, background: 'rgba(17,17,20,0.9)' }}>
             <div className="row">
               <Cover chart={chart} size={64} />
               <div className="col grow" style={{ gap: 3 }}>
@@ -750,16 +750,16 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
                 <span className="chip" style={{ alignSelf: 'flex-start', color: info.color, borderColor: info.color }}>{info.name} · {lanes}</span>
               </div>
             </div>
-            <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-hover)', overflow: 'hidden' }}>
+            <div style={{ height: 6, borderRadius: 0, background: 'var(--ink-3)', overflow: 'hidden' }}>
               <div style={{ height: 6, width: `${Math.min(100, (hud.t / endAt) * 100)}%`, background: 'var(--accent)' }} />
             </div>
             <div className="mono small muted" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{formatTime(hud.t)}</span><span>{formatTime(endAt)}</span></div>
           </div>
           {auto && <div className="chip" style={{ alignSelf: 'flex-start', color: 'var(--gold)', borderColor: 'rgba(245,183,0,0.5)', background: 'rgba(30,24,6,0.8)' }}>● Demo: no cuenta</div>}
-          {practice && <div className="chip" style={{ alignSelf: 'flex-start', color: '#C084FC', borderColor: 'var(--accent)', background: 'rgba(20,10,40,0.8)' }}>● Práctica {formatTime(practice.from)}–{formatTime(practice.to)} · {practice.rate}×</div>}
+          {practice && <div className="chip" style={{ alignSelf: 'flex-start', color: 'var(--spot)', borderColor: 'var(--spot)' }}>● Práctica {formatTime(practice.from)}–{formatTime(practice.to)} · {practice.rate}×</div>}
           {!practice && !auto && modsLabel(mods) && <div className="chip" style={{ alignSelf: 'flex-start', color: 'var(--text-2)' }}>{modsLabel(mods)}</div>}
           {phase === 'waiting' && (
-            <div role="status" style={{ display: 'flex', gap: 10, padding: 14, borderRadius: 3, background: 'rgba(30,24,6,0.92)', border: '2px solid rgba(255,210,63,0.6)', color: 'var(--warn)' }}>
+            <div role="status" style={{ display: 'flex', gap: 10, padding: 14, borderRadius: 0, background: 'rgba(28,22,4,0.94)', border: '1px solid rgba(255,197,61,0.55)', color: 'var(--warn)' }}>
               <div className="col" style={{ gap: 3 }}>
                 <div className="cond" style={{ fontSize: 15 }}>{hasPlayed.current ? 'Esperando al video' : 'Preparando el video'}</div>
                 <div className="small" style={{ color: '#EADFA8' }}>{hasPlayed.current ? 'Puede haber un anuncio de YouTube. La canción sigue sola cuando el video avance.' : 'Si YouTube pone un anuncio, pasa ahora. Después corren los segundos de inicio y parte la canción.'}</div>
@@ -773,7 +773,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           </div>
           <button type="button" className="panel row small" onClick={toggleMic} aria-pressed={mic === 'on'}
             title="Las luces del fondo escuchan el sonido de tus parlantes con el micrófono. Nada se graba ni se envía."
-            style={{ padding: '10px 12px', gap: 10, cursor: 'pointer', color: 'var(--text)', textAlign: 'left', background: mic === 'on' ? 'rgba(168,85,247,0.2)' : 'rgba(20,18,42,0.88)', borderColor: mic === 'on' ? 'var(--accent)' : undefined }}>
+            style={{ padding: '10px 12px', gap: 10, cursor: 'pointer', color: 'var(--text)', textAlign: 'left', background: mic === 'on' ? 'rgba(255,61,139,0.18)' : 'rgba(11,11,12,0.9)', borderColor: mic === 'on' ? 'var(--spot)' : undefined }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg>
             <span className="col grow" style={{ gap: 1 }}>
               <span style={{ fontWeight: 600 }}>{mic === 'on' ? 'Luces con el sonido real' : 'Luces con el ritmo del chart'}</span>
@@ -781,16 +781,16 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
             </span>
           </button>
           {best && (
-            <div className="panel small" style={{ padding: 12, background: 'rgba(20,18,42,0.88)' }}>
+            <div className="panel small" style={{ padding: 12, background: 'rgba(17,17,20,0.9)' }}>
               <div className="muted">Tu mejor puntaje</div>
               <div className="mono" style={{ fontSize: 20, fontWeight: 700 }}>{fmt(best.score)}</div>
             </div>
           )}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div className="marker" style={{ fontSize: 30, lineHeight: '32px', color: 'var(--accent)', transform: 'rotate(-6deg)', transformOrigin: 'left', textShadow: '3px 3px 0 #000' }}>¡Que no pare<br />la música!</div>
+            <div className="disp" style={{ fontSize: 34, lineHeight: '32px', color: 'var(--paper)' }}>Que no pare<br />la música</div>
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
               {keysShown.map((k, i) => (
-                <span key={i} className="mono" style={{ minWidth: 28, height: 28, padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, background: 'var(--bg-raised)', border: `1px solid ${LANE_COLORS[i]}`, color: LANE_COLORS[i], fontWeight: 700, fontSize: 13 }}>{k.toUpperCase()}</span>
+                <span key={i} className="mono" style={{ minWidth: 28, height: 28, padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 0, background: 'var(--ink-3)', border: `1px solid ${LANE_COLORS[i]}`, color: LANE_COLORS[i], fontWeight: 700, fontSize: 13 }}>{k.toUpperCase()}</span>
               ))}
               <span className="small muted" style={{ marginLeft: 6 }}>Esc pausa · Espacio energía</span>
             </div>
@@ -810,14 +810,14 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         </div>
 
         {/* Energía */}
-        <div aria-label={`Energía ${Math.round(hud.energy * 100)} %`} style={{ position: 'absolute', left: 1100, top: 470, width: 18, height: 300, borderRadius: 9, background: 'rgba(10,9,22,0.9)', border: `1px solid ${hud.energy >= 0.5 ? 'var(--gold)' : 'var(--border)'}`, overflow: 'hidden', boxShadow: hud.energy >= 0.5 ? '0 0 18px rgba(245,183,0,0.6)' : undefined }}>
-          <div className={hud.energy >= 0.5 && !hud.boosting ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: `${hud.energy * 100}%`, background: 'linear-gradient(0deg,#7E22CE,#EC4899 60%,#F5B700)', boxShadow: '0 0 12px rgba(245,183,0,0.8)', transition: 'height .12s' }} />
+        <div aria-label={`Energía ${Math.round(hud.energy * 100)} %`} style={{ position: 'absolute', left: 1100, top: 470, width: 18, height: 300, borderRadius: 0, background: 'rgba(11,11,12,0.92)', border: `1px solid ${hud.energy >= 0.5 ? 'var(--gold)' : 'var(--line-2)'}`, overflow: 'hidden', boxShadow: undefined }}>
+          <div className={hud.energy >= 0.5 && !hud.boosting ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: `${hud.energy * 100}%`, background: hud.energy >= 0.5 ? '#ffc53d' : '#ff3d8b', transition: 'height .12s' }} />
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: '50%', height: 2, background: 'rgba(255,255,255,0.5)' }} />
         </div>
         <div className="cond" style={{ position: 'absolute', left: 1122, top: 640, writingMode: 'vertical-rl', fontSize: 11, letterSpacing: '0.16em', color: hud.energy >= 0.5 ? 'var(--gold)' : 'var(--text-2)' }}>{hud.boosting ? 'LEYENDA' : 'ENERGÍA'}</div>
 
         {/* Marcador */}
-        <section aria-label="Marcador" style={{ position: 'absolute', left: 340, top: 812, width: 760, height: 76, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', background: 'rgba(10,9,22,0.94)', border: '2px solid var(--border)', borderTop: '3px solid var(--accent)', borderRadius: 3 }}>
+        <section aria-label="Marcador" style={{ position: 'absolute', left: 340, top: 812, width: 760, height: 76, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', background: 'rgba(11,11,12,0.95)', border: '1px solid var(--line)', borderTop: '6px solid var(--paper)', borderRadius: 0 }}>
           <HudCell label="Puntuación"><span className="disp" style={{ fontSize: 30, fontVariantNumeric: 'tabular-nums' }}>{fmt(hud.score)}</span></HudCell>
           <HudCell label="Racha" row>
             <MultRing combo={hud.combo} mult={hud.mult} boosting={hud.boosting} color={multColor} />
@@ -825,30 +825,30 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           </HudCell>
           <HudCell label="Precisión"><span className="disp" style={{ fontSize: 30, color: 'var(--ok)' }}>{(hud.acc * 100).toFixed(1).replace('.', ',')}%</span></HudCell>
           <HudCell label="Rango" last>
-            <span className="disp" style={{ width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: rankCol, border: `3px solid ${rankCol}`, boxShadow: `0 0 16px ${rankCol}66` }}>{hud.rank}</span>
+            <span className="disp" style={{ width: 52, height: 52, borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: rankCol, border: `3px solid ${rankCol}`, boxShadow: `0 0 16px ${rankCol}66` }}>{hud.rank}</span>
           </HudCell>
         </section>
 
         {/* Columna derecha */}
         <aside style={{ position: 'absolute', left: 1128, top: 36, width: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Link href="/perfil" className="panel row" style={{ padding: 12, color: 'var(--text)', background: 'rgba(20,18,42,0.88)' }}>
-            <span className="avatar" style={{ width: 48, height: 48, borderRadius: 3, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 16 }}>{me.initials}</span>
+          <Link href="/perfil" className="panel row" style={{ padding: 12, color: 'var(--text)', background: 'rgba(17,17,20,0.9)' }}>
+            <span className="avatar" style={{ width: 48, height: 48, borderRadius: 0, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 16 }}>{me.initials}</span>
             <span className="col grow" style={{ gap: 4 }}>
               <span style={{ fontSize: 17, fontWeight: 700 }}>{me.name}</span>
               <span className="small muted">{me.loggedIn ? `Nivel ${me.level}` : 'Sin cuenta: el puntaje queda solo aquí'}</span>
             </span>
           </Link>
-          <section className="panel col" style={{ padding: 14, gap: 8, background: 'rgba(20,18,42,0.88)' }}>
+          <section className="panel col" style={{ padding: 14, gap: 8, background: 'rgba(17,17,20,0.9)' }}>
             <div className="row"><span className="label grow">Ranking en vivo</span><span className="cond" style={{ fontSize: 11, color: 'var(--accent)' }}>● {board ? 'Semana' : 'Solo tú'}</span></div>
             {live.map((r, i) => (
-              <div key={i} className="row" style={{ gap: 8, height: 34, padding: '0 8px', borderRadius: 2, ...(r.me ? { background: 'rgba(168,85,247,0.18)', border: '1px solid var(--accent)' } : { borderBottom: '1px solid var(--bg-hover)' }) }}>
+              <div key={i} className="row" style={{ gap: 8, height: 34, padding: '0 8px', borderRadius: 2, ...(r.me ? { background: 'rgba(255,61,139,0.18)', border: '1px solid var(--accent)' } : { borderBottom: '1px solid var(--bg-hover)' }) }}>
                 <span className="mono small muted" style={{ width: 30, fontWeight: 700 }}>#{r.pos}</span>
                 <span className="grow" style={{ fontSize: 14, fontWeight: 600 }}>{r.n}</span>
                 <span className="mono small" style={{ fontWeight: 700 }}>{fmt(r.score)}</span>
               </div>
             ))}
           </section>
-          <section className="panel col" style={{ padding: 14, gap: 10, background: 'rgba(20,18,42,0.88)' }}>
+          <section className="panel col" style={{ padding: 14, gap: 10, background: 'rgba(17,17,20,0.9)' }}>
             <span className="label">Sigue en la cola</span>
             {queue.map((q) => (
               <Link key={q.id} href={`/cancion/${q.id}`} className="row" style={{ gap: 10, color: 'var(--text)' }}>
@@ -884,7 +884,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       )}
 
       {/* Pantalla del escenario: el reproductor de YouTube, siempre el mismo nodo (se reubica, no se recrea) */}
-      <div aria-label="Pantalla del escenario" style={{ ...videoBoxStyle, padding: boxPad, background: '#000', border: '2px solid var(--border)', borderRadius: 3, boxShadow: lay.mobile || lowFx ? undefined : '0 0 60px rgba(168,85,247,0.35), 0 20px 50px rgba(0,0,0,0.8)', color: 'var(--text)' }}>
+      <div aria-label="Pantalla del escenario" style={{ ...videoBoxStyle, padding: boxPad, background: '#000', border: '1px solid var(--line-2)', borderRadius: 0, boxShadow: lay.mobile || lowFx ? undefined : '0 24px 60px rgba(0,0,0,0.85)', color: 'var(--text)' }}>
         {isYouTube ? (
           /*
            * Nada encima del reproductor: las políticas de YouTube prohíben taparlo o bloquear sus
@@ -894,18 +894,18 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           <div style={{ position: 'relative', width: video.w, height: video.h, background: '#000' }}>
             <div id="yt-player" />
             {recovered && (
-              <div role="status" style={{ position: 'absolute', left: 8, right: 8, bottom: 8, padding: '6px 10px', borderRadius: 3, background: 'rgba(10,9,22,0.92)', border: '1px solid var(--accent)', color: 'var(--text-2)', fontSize: 12, textAlign: 'center', pointerEvents: 'none' }}>
+              <div role="status" style={{ position: 'absolute', left: 8, right: 8, bottom: 8, padding: '6px 10px', borderRadius: 0, background: 'rgba(11,11,12,0.92)', border: '1px solid var(--accent)', color: 'var(--text-2)', fontSize: 12, textAlign: 'center', pointerEvents: 'none' }}>
                 El video se movió: lo devolvimos a su lugar. Para pausar, usa el botón o Esc.
               </div>
             )}
           </div>
         ) : lay.mobile ? (
-          <div style={{ width: video.w, height: innerH, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#0B0716', textAlign: 'center', fontSize: 13 }}>
+          <div style={{ width: video.w, height: innerH, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#0d0d10', textAlign: 'center', fontSize: 13 }}>
             <span className="disp" style={{ fontSize: 18, color: 'var(--accent)' }}>Modo metrónomo</span>
             <span className="muted">· sin video</span>
           </div>
         ) : (
-          <div style={{ width: 400, height: 225, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0B0716', textAlign: 'center', padding: 24 }}>
+          <div style={{ width: 400, height: 225, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0d0d10', textAlign: 'center', padding: 24 }}>
             <div className="disp" style={{ fontSize: 30, lineHeight: '34px', color: 'var(--accent)', whiteSpace: 'nowrap' }}>Modo metrónomo</div>
             <div className="muted" style={{ maxWidth: 340, fontSize: 14 }}>Esta canción de prueba no tiene video. Asígnale uno de YouTube desde su ficha para tocar con la canción real.</div>
           </div>
@@ -914,9 +914,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       <style>{`
         .judge-pop { transform: translate(-50%, 0) rotate(-3deg); animation: judgeUp .55s ease-out forwards; }
         @keyframes judgeUp { from { opacity: 1; transform: translate(-50%, 0) rotate(-3deg) scale(1.15); } to { opacity: 0; transform: translate(-50%, -30px) rotate(-3deg) scale(1); } }
-        .banner-pop { transform: translate(-50%, 0); animation: bannerIn 1.3s cubic-bezier(.2,1.4,.4,1) forwards; }
-        @keyframes bannerIn { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.4) rotate(-8deg); } 18% { opacity: 1; transform: translate(-50%, 0) scale(1.08) rotate(-3deg); } 30% { transform: translate(-50%, 0) scale(1) rotate(-3deg); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -24px) scale(1) rotate(-3deg); } }
-        .combo-pop { animation: comboPop .35s cubic-bezier(.2,1.6,.4,1); }
+        .banner-pop { transform: translate(-50%, 0); animation: bannerIn 1.3s cubic-bezier(.16,1,.3,1) forwards; }
+        @keyframes bannerIn { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.4) rotate(-8deg); } 18% { opacity: 1; transform: translate(-50%, 0) scale(1.02) rotate(-3deg); } 30% { transform: translate(-50%, 0) scale(1) rotate(-3deg); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -24px) scale(1) rotate(-3deg); } }
+        .combo-pop { animation: comboPop .3s cubic-bezier(.16,1,.3,1); }
         @keyframes comboPop { from { transform: scale(1.35); } to { transform: scale(1); } }
         .cd-pop { animation: cdPop .5s ease-out; }
         @keyframes cdPop { from { transform: scale(1.6); opacity: .2; } to { transform: scale(1); opacity: 1; } }

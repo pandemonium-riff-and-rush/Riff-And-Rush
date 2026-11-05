@@ -116,7 +116,7 @@ export default function Laboratorio() {
     if (last) {
       setJudge({
         text: last.clean ? '¡Limpio!' : JUDGE_TEXT[last.judgment],
-        color: last.clean ? '#F5B700' : JUDGE_COLOR[last.judgment],
+        color: last.clean ? '#ffc53d' : JUDGE_COLOR[last.judgment],
         sub: last.clean ? JUDGE_TEXT[last.judgment] : last.judgment === 'good' ? (last.offsetMs < 0 ? 'temprano' : 'tarde') : undefined,
         key: ms
       });
@@ -237,12 +237,12 @@ export default function Laboratorio() {
       </div>
 
       <div className="row" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', width: HW, height: HH, flexShrink: 0, background: '#05041A', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border)' }}>
+        <div style={{ position: 'relative', width: HW, height: HH, flexShrink: 0, background: '#0d0d10', borderRadius: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
           <canvas ref={canvasRef} style={{ width: HW, height: HH, display: 'block' }} aria-label="Autopista de prueba" />
           {judge && (
             <div key={judge.key} className="lab-judge" style={{ position: 'absolute', left: HW / 2, top: HIT - 110, textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
               <div className="disp" style={{ fontSize: 34, color: judge.color, textShadow: `3px 3px 0 #000, 0 0 16px ${judge.color}` }}>{judge.text}</div>
-              {judge.sub && <div className="cond" style={{ fontSize: 13, letterSpacing: '0.12em', color: '#CFCAEA', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
+              {judge.sub && <div className="cond" style={{ fontSize: 13, letterSpacing: '0.12em', color: '#c3bfb5', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
             </div>
           )}
           {!running && (
@@ -265,7 +265,7 @@ export default function Laboratorio() {
                 </div>
               ))}
             </dl>
-            <p className="small" style={{ margin: '4px 0 0', padding: '8px 10px', borderRadius: 3, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.35)' }}>
+            <p className="small" style={{ margin: '4px 0 0', padding: '8px 10px', borderRadius: 0, background: 'rgba(255,61,139,0.12)', border: '1px solid rgba(255,61,139,0.35)' }}>
               <b>Qué mirar:</b> {drill.feel}
             </p>
           </section>
@@ -285,7 +285,7 @@ export default function Laboratorio() {
                 <span className="row" style={{ gap: 4 }}>
                   {[0, 1, 2, 3, 4].map((i) => (
                     <span key={i} style={{
-                      width: 12, height: 12, borderRadius: 3,
+                      width: 12, height: 12, borderRadius: 0,
                       background: i < hud.stack ? LANE_COLORS[i] : 'var(--bg-hover)',
                       boxShadow: i < hud.stack ? `0 0 8px ${LANE_COLORS[i]}` : undefined
                     }} />
@@ -296,12 +296,12 @@ export default function Laboratorio() {
             </div>
             <div className="col" style={{ gap: 4 }}>
               <span className="label">Palanca de trémolo (solo energía)</span>
-              <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-hover)', overflow: 'hidden' }}>
-                <div style={{ height: 8, width: `${hud.whammy * 100}%`, background: 'linear-gradient(90deg,#7E22CE,#F5B700)', transition: 'width .08s' }} />
+              <div style={{ height: 8, borderRadius: 0, background: 'var(--bg-hover)', overflow: 'hidden' }}>
+                <div style={{ height: 8, width: `${hud.whammy * 100}%`, background: '#ffc53d', transition: 'width .08s' }} />
               </div>
               <span className="small muted">Guitarra: la palanca. MIDI: pitch bend o mod wheel. Teclado: machaca la tecla durante una nota larga.</span>
             </div>
-            <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-hover)', overflow: 'hidden' }}>
+            <div style={{ height: 8, borderRadius: 0, background: 'var(--bg-hover)', overflow: 'hidden' }}>
               <div style={{ height: 8, width: `${hud.energy * 100}%`, background: 'linear-gradient(90deg,#3FA9FF,#3DDC84)' }} />
             </div>
           </section>

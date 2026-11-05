@@ -4,7 +4,7 @@ export interface Genre { id: string; name: string; color: string; match: string[
 export const GENRES: Genre[] = [
   { id: 'rock', name: 'Rock', color: '#FF4D6D', match: ['rock', 'pop rock', 'hard rock', 'cumbia rock', 'rock latino'] },
   { id: 'metal', name: 'Metal', color: '#FF8A3D', match: ['metal', 'heavy metal', 'metalcore', 'thrash'] },
-  { id: 'anime', name: 'Anime y openings', color: '#EC4899', match: ['anime', 'opening', 'j-rock', 'jrock', 'j-pop', 'jpop', 'vocaloid', 'ending'] },
+  { id: 'anime', name: 'Anime y openings', color: '#ff3d8b', match: ['anime', 'opening', 'j-rock', 'jrock', 'j-pop', 'jpop', 'vocaloid', 'ending'] },
   { id: 'punk', name: 'Punk', color: '#FFD23F', match: ['punk', 'pop punk', 'hardcore'] },
   { id: 'indie', name: 'Indie y alternativo', color: '#3FA9FF', match: ['indie', 'alternativo', 'alternative', 'emo'] },
   { id: 'pop', name: 'Pop', color: '#B26BFF', match: ['pop', 'k-pop', 'kpop'] },

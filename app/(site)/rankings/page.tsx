@@ -38,7 +38,7 @@ export default function Rankings() {
     }
   }, [configured, user, p.id, kind]);
 
-  const medals = ['#F5B700', '#CFCAEA', '#FF8A3D'];
+  const medals = ['#ffc53d', '#c3bfb5', '#FF8A3D'];
   const mine = kind === 0 ? myRank : null;
   const myCharter = kind === 1 ? list?.find((r) => me.loggedIn && r.name === me.name) : undefined;
 
@@ -69,7 +69,7 @@ export default function Rankings() {
               return (
                 <div key={r.key} className="panel col" style={{ alignItems: 'center', justifyContent: 'center', gap: 8, height: idx === 0 ? 236 : 204, borderColor: idx === 0 ? 'rgba(245,183,0,0.5)' : 'var(--border)' }}>
                   <span className="disp" style={{ fontSize: 28, color: medals[idx] }}>{r.pos}</span>
-                  <span className="avatar" style={{ width: 64, height: 64, background: r.color, fontSize: 20, boxShadow: `0 0 0 3px #0A0916, 0 0 0 5px ${medals[idx]}` }}>{r.initials}</span>
+                  <span className="avatar" style={{ width: 64, height: 64, background: r.color, fontSize: 20, boxShadow: `0 0 0 3px #0b0b0c, 0 0 0 5px ${medals[idx]}` }}>{r.initials}</span>
                   <span style={{ fontSize: 17, fontWeight: 600 }}>{r.name}</span>
                   <span className="mono" style={{ fontSize: 22, fontWeight: 700 }}>{r.score.toLocaleString('es-CL')}</span>
                   <span className="small muted">{r.extra}</span>
@@ -94,7 +94,7 @@ export default function Rankings() {
       )}
 
       {configured && (
-        <div className="row" style={{ height: 60, padding: '0 16px', borderRadius: 3, background: 'rgba(168,85,247,0.14)', border: '1px solid var(--accent)' }}>
+        <div className="row" style={{ height: 60, padding: '0 16px', borderRadius: 0, background: 'rgba(255,61,139,0.14)', border: '1px solid var(--accent)' }}>
           <span className="mono" style={{ width: 48, fontWeight: 700 }}>{mine ? mine.pos : myCharter ? myCharter.pos : '—'}</span>
           <span className="avatar" style={{ width: 32, height: 32, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 12 }}>{me.initials}</span>
           <span className="grow" style={{ fontWeight: 600 }}>Tú · {me.name}</span>

@@ -74,7 +74,7 @@ export default function Profile() {
   return (
     <main className="page col" style={{ gap: 28 }}>
       <section className="row" style={{ gap: 24, flexWrap: 'wrap' }}>
-        <span className="avatar" style={{ width: 96, height: 96, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 32, boxShadow: `0 0 0 4px #0A0916, 0 0 0 6px ${me.loggedIn ? me.color : '#332C5C'}` }}>{me.initials}</span>
+        <span className="avatar" style={{ width: 96, height: 96, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 32, boxShadow: `0 0 0 4px #0b0b0c, 0 0 0 6px ${me.loggedIn ? me.color : 'var(--line-2)'}` }}>{me.initials}</span>
         <div className="col grow" style={{ gap: 10, minWidth: 240 }}>
           <div className="row" style={{ alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
             <h1 className="disp" style={{ fontSize: 36 }}>{me.name}</h1>

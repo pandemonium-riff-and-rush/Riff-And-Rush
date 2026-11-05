@@ -8,7 +8,7 @@ import { sb } from '@/lib/supabase/client';
 import { usernameAvailable } from '@/lib/data/cloud';
 
 const USER_RE = /^[A-Za-z0-9_.]{3,20}$/;
-const AVATAR_COLORS = ['#7E22CE', '#EC4899', '#3DDC84', '#FF4D6D', '#FFD23F', '#3FA9FF', '#FF8A3D', '#B26BFF', '#14B8A6', '#CFCAEA'];
+const AVATAR_COLORS = ['#ff3d8b', '#d41f6a', '#3DDC84', '#FF4D6D', '#FFD23F', '#3FA9FF', '#FF8A3D', '#B26BFF', '#14B8A6', '#c3bfb5'];
 const COUNTRIES = ['Chile', 'Argentina', 'Bolivia', 'Brasil', 'Colombia', 'Costa Rica', 'Cuba', 'Ecuador', 'El Salvador', 'España', 'Estados Unidos', 'Guatemala', 'Honduras', 'México', 'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'Puerto Rico', 'República Dominicana', 'Uruguay', 'Venezuela', 'Otro'];
 
 export default function Account() {
@@ -89,7 +89,7 @@ export default function Account() {
 
       <form className="panel col" style={{ padding: 28, gap: 20 }} onSubmit={save}>
         <div className="row" style={{ gap: 20 }}>
-          <span className="avatar" style={{ width: 80, height: 80, background: color, color: '#fff', fontSize: 28, boxShadow: `0 0 0 4px #0A0916, 0 0 0 6px ${color}` }}>{initialsOf(username || '?')}</span>
+          <span className="avatar" style={{ width: 80, height: 80, background: color, color: '#fff', fontSize: 28, boxShadow: `0 0 0 4px #0b0b0c, 0 0 0 6px ${color}` }}>{initialsOf(username || '?')}</span>
           <div className="col grow" style={{ gap: 8 }}>
             <div className="row" style={{ alignItems: 'baseline' }}>
               <span className="disp" style={{ fontSize: 26 }}>{username || 'tu_nombre'}</span>
@@ -111,7 +111,7 @@ export default function Account() {
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             {AVATAR_COLORS.map((c) => (
               <button key={c} type="button" onClick={() => setColor(c)} aria-label={`Color ${c}`} aria-pressed={color === c}
-                style={{ width: 36, height: 36, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '3px solid #F2F0FF' : '3px solid transparent', boxShadow: color === c ? `0 0 12px ${c}` : undefined }} />
+                style={{ width: 36, height: 36, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '3px solid #e9e6de' : '3px solid transparent', boxShadow: color === c ? `0 0 12px ${c}` : undefined }} />
             ))}
           </div>
         </div>

@@ -6,10 +6,10 @@ import { DEFAULT_SETTINGS, getSettings, saveSettings, type Settings } from '@/li
 import { connectedPads, learnMidiNote, learnPadButton } from '@/lib/game/input';
 
 const THEMES: { id: Settings['theme']; name: string; bg: string; edge: string }[] = [
-  { id: 'estadio', name: 'Estadio', bg: '#1C1238', edge: '#A855F7' },
+  { id: 'estadio', name: 'Estadio', bg: '#15151a', edge: '#e9e6de' },
   { id: 'madera', name: 'Madera', bg: '#3A2418', edge: '#FF8A3D' },
   { id: 'hielo', name: 'Hielo', bg: '#12304A', edge: '#3FA9FF' },
-  { id: 'contraste', name: 'Alto contraste', bg: '#000000', edge: '#F2F0FF' }
+  { id: 'contraste', name: 'Alto contraste', bg: '#000000', edge: '#e9e6de' }
 ];
 
 export default function SettingsPage() {
@@ -53,7 +53,7 @@ export default function SettingsPage() {
             <div key={i} className="row" style={{ height: 52, borderBottom: '1px solid var(--border)' }}>
               <span style={{ width: 14, height: 14, borderRadius: '50%', background: LANE_COLORS[i] }} />
               <span className="grow">Carril {i + 1}</span>
-              <span className="mono" style={{ minWidth: 44, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, border: `2px solid ${LANE_COLORS[i]}`, color: LANE_COLORS[i], fontWeight: 700, background: remap === i ? 'rgba(168,85,247,0.16)' : undefined }}>{remap === i ? '…' : k.toUpperCase()}</span>
+              <span className="mono" style={{ minWidth: 44, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 0, border: `2px solid ${LANE_COLORS[i]}`, color: LANE_COLORS[i], fontWeight: 700, background: remap === i ? 'rgba(255,61,139,0.16)' : undefined }}>{remap === i ? '…' : k.toUpperCase()}</span>
               <button className="btn btn-g btn-sm" type="button" onClick={() => setRemap(remap === i ? -1 : i)}>{remap === i ? 'Presiona una tecla' : 'Cambiar tecla'}</button>
             </div>
           ))}
@@ -83,7 +83,7 @@ export default function SettingsPage() {
               <div className="row" role="group" aria-label="Tema">
                 {THEMES.map((t) => (
                   <button key={t.id} type="button" aria-label={t.name} aria-pressed={s.theme === t.id} onClick={() => update({ theme: t.id })}
-                    style={{ width: 56, height: 56, borderRadius: 4, cursor: 'pointer', background: t.bg, border: `2px solid ${s.theme === t.id ? t.edge : 'var(--border)'}`, boxShadow: `inset 0 -14px 0 ${t.edge}` }} />
+                    style={{ width: 56, height: 56, borderRadius: 0, cursor: 'pointer', background: t.bg, border: `2px solid ${s.theme === t.id ? t.edge : 'var(--border)'}`, boxShadow: `inset 0 -14px 0 ${t.edge}` }} />
                 ))}
               </div>
               <span className="small">{THEMES.find((t) => t.id === s.theme)?.name}</span>
@@ -260,7 +260,7 @@ function Calibrate({ onClose, onApply }: { onClose: () => void; onApply: (ms: nu
         <h2 className="disp" style={{ fontSize: 28 }}>Calibrar latencia</h2>
         <div className="muted">Presiona cualquier tecla cada vez que suene el clic.</div>
         <div className="row" style={{ gap: 18, height: 72 }}>
-          {[0, 1, 2, 3].map((i) => <span key={i} style={{ borderRadius: '50%', transition: 'all .12s', ...(beat % 4 === i ? { width: 56, height: 56, background: 'var(--accent)', boxShadow: '0 0 28px rgba(168,85,247,0.9)' } : { width: 28, height: 28, background: 'var(--border)' }) }} />)}
+          {[0, 1, 2, 3].map((i) => <span key={i} style={{ borderRadius: 0, transition: 'all .12s', ...(beat % 4 === i ? { width: 56, height: 56, background: 'var(--accent)', boxShadow: 'none' } : { width: 28, height: 28, background: 'var(--border)' }) }} />)}
         </div>
         <div className="col" style={{ gap: 4 }}>
           <span className="small muted">Resultado ({offsets.length} de 8 golpes mínimo)</span>

@@ -1,4 +1,11 @@
 import type { Metadata, Viewport } from 'next';
+// Las fuentes viajan con el proyecto en vez de pedírselas a Google en cada carga:
+// una petición menos a otro servidor, sin salto de tipografía al cargar y funciona
+// aunque Google esté bloqueado. Archivo es variable, así que una sola familia da la
+// voz de afiche (ancho 62, peso 900) y la de texto (ancho 100).
+import '@fontsource-variable/archivo';
+import '@fontsource-variable/archivo/wdth.css';
+import '@fontsource-variable/martian-mono';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth/AuthProvider';
 
@@ -31,21 +38,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a0916',
+  themeColor: '#0b0b0c',
   colorScheme: 'dark'
 };
-
-const FONTS = 'https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=Space+Mono:wght@400;700&family=Permanent+Marker&display=swap';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link rel="stylesheet" href={FONTS} />
-      </head>
       <body><AuthProvider>{children}</AuthProvider></body>
     </html>
   );

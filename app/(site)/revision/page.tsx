@@ -92,7 +92,7 @@ export default function Review() {
             <button className="btn btn-g btn-sm" type="button" disabled={busy === chartId} onClick={() => act(chartId, () => setReportStatus(list.map((r) => r.id), 'descartado'), 'Reportes descartados.')}>Descartar</button>
           </div>
           {list.map((r) => (
-            <div key={r.id} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', alignItems: 'flex-start' }}>
+            <div key={r.id} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 0, background: 'rgba(255,255,255,0.03)', alignItems: 'flex-start' }}>
               <span className="chip" style={{ color: 'var(--hot-soft)', borderColor: 'rgba(236,72,153,0.5)', whiteSpace: 'nowrap' }}>{reasonLabel(r.reason)}</span>
               <span className="grow">{r.details || <span className="muted">Sin detalles</span>}</span>
               <span className="muted mono">{new Date(r.created_at).toLocaleDateString('es-CL')}</span>
@@ -133,7 +133,7 @@ export default function Review() {
               </span>
             </div>
             {suspect.length ? suspect.map((r) => (
-              <div key={r.chart_id + r.difficulty} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
+              <div key={r.chart_id + r.difficulty} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 0, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
                 <span className="mono grow" style={{ minWidth: 180 }}>{r.chart_id} · {r.difficulty}</span>
                 <span style={{ color: 'var(--hot-soft)' }}>mediana {Math.round(r.median_acc * 100)} %</span>
                 <span className="muted">mejor {Math.round(r.best_acc * 100)} %</span>
@@ -149,7 +149,7 @@ export default function Review() {
               <span className="small muted">Lo que les pasó a los jugadores de verdad, agrupado por motivo.</span>
             </div>
             {events.length ? events.map((e, i) => (
-              <div key={i} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
+              <div key={i} className="row small" style={{ gap: 12, padding: '8px 10px', borderRadius: 0, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
                 <span className="chip" style={{ color: 'var(--gold)', borderColor: 'rgba(245,183,0,0.5)', whiteSpace: 'nowrap' }}>{EVENT_LABEL[e.kind] ?? e.kind}</span>
                 <span className="grow" style={{ minWidth: 160 }}>{e.detail || <span className="muted">sin detalle</span>}</span>
                 {e.chart_id && <span className="mono muted">{e.chart_id}</span>}
@@ -168,7 +168,7 @@ export default function Review() {
             <span className="small muted">Del botón &quot;Opinar&quot;. Marca como visto lo que ya revisaste para no leerlo dos veces.</span>
           </div>
           {opiniones.length ? opiniones.map((o) => (
-            <div key={o.id} className="col" style={{ gap: 6, padding: '10px 12px', borderRadius: 4, background: o.leido ? 'rgba(255,255,255,0.02)' : 'rgba(168,85,247,0.08)', border: `1px solid ${o.leido ? 'transparent' : 'rgba(168,85,247,0.35)'}`, opacity: o.leido ? 0.65 : 1 }}>
+            <div key={o.id} className="col" style={{ gap: 6, padding: '10px 12px', borderRadius: 0, background: o.leido ? 'rgba(255,255,255,0.02)' : 'rgba(255,61,139,0.08)', border: `1px solid ${o.leido ? 'transparent' : 'rgba(255,61,139,0.35)'}`, opacity: o.leido ? 0.65 : 1 }}>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{o.texto}</p>
               <div className="row small muted" style={{ gap: 10, flexWrap: 'wrap' }}>
                 <span>{o.autor || 'sin cuenta'}</span>

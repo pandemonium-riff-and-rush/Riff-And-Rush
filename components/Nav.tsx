@@ -5,17 +5,32 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth, useMe } from '@/lib/auth/AuthProvider';
 
+/*
+ * El orden es el del jugador que llega de cero: primero tocar, después competir,
+ * después crear. "Apoyar" salió de la barra: pedir plata antes de que alguien
+ * haya jugado una canción no tiene sentido; vive en el pie y en tu perfil.
+ */
 const LINKS = [
-  { href: '/canciones', label: 'Jugar' },
-  { href: '/editor', label: 'Crear' },
+  { href: '/canciones', label: 'Canciones' },
   { href: '/rankings', label: 'Rankings' },
-  { href: '/apoyar', label: 'Apoyar' }
+  { href: '/editor', label: 'Crear' }
 ];
 
-export function Logo({ size = 24 }: { size?: number }) {
+/**
+ * El logotipo es una plancha de papel con la tinta encima, como el bloque de
+ * título de un afiche fotocopiado. El & va en el color plano.
+ */
+export function Logo({ size = 22 }: { size?: number }) {
   return (
-    <span className="disp" style={{ fontSize: size, letterSpacing: '0.02em' }}>
-      Riff<span style={{ color: 'var(--accent)' }}>&amp;</span>Rush
+    <span
+      className="disp"
+      style={{
+        display: 'inline-block', background: 'var(--paper)', color: 'var(--ink)',
+        fontSize: size, lineHeight: 1, padding: `${Math.round(size * 0.3)}px ${Math.round(size * 0.42)}px ${Math.round(size * 0.26)}px`,
+        letterSpacing: '-0.02em'
+      }}
+    >
+      Riff<span style={{ color: 'var(--spot-deep)' }}>&amp;</span>Rush
     </span>
   );
 }
@@ -33,10 +48,6 @@ export default function Nav() {
   return (
     <header className="nav">
       <Link href="/" className="nav-logo" aria-label="Riff&Rush, inicio">
-        <svg width="30" height="34" viewBox="0 0 30 34" fill="none" aria-hidden="true">
-          <path d="M15 33C8 26 1 17 1 9 1 4 7 1 15 1s14 3 14 8c0 8-7 17-14 24z" fill="#A855F7" stroke="#0A0916" strokeWidth="1.5" />
-          <path d="M17 5l-7 12h5l-3 11 8-14h-5z" fill="#F2F0FF" />
-        </svg>
         <Logo />
       </Link>
       <nav aria-label="Principal" className="nav-links">
@@ -47,7 +58,7 @@ export default function Nav() {
         ))}
         {profile?.is_admin && <Link href="/revision" aria-current={path.startsWith('/revision') ? 'page' : undefined} style={{ color: 'var(--gold)' }}>Revisión</Link>}
         {/* Pista de pruebas de técnicas: solo para el equipo mientras se decide qué entra */}
-        {profile?.is_admin && <Link href="/laboratorio" aria-current={path.startsWith('/laboratorio') ? 'page' : undefined} style={{ color: '#C084FC' }}>Laboratorio</Link>}
+        {profile?.is_admin && <Link href="/laboratorio" aria-current={path.startsWith('/laboratorio') ? 'page' : undefined} style={{ color: 'var(--spot)' }}>Laboratorio</Link>}
       </nav>
       <Link href="/ajustes" aria-label="Ajustes" className="btn btn-g btn-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -59,10 +70,10 @@ export default function Nav() {
         <Link href="/entrar" className="btn btn-p btn-sm">Entrar</Link>
       ) : (
         <Link href="/perfil" className="row" style={{ color: 'var(--text)', gap: 10, fontSize: 14, fontWeight: 500, visibility: loading ? 'hidden' : undefined }} aria-label="Tu perfil">
-          <span className="avatar" style={{ width: 40, height: 40, background: me.loggedIn ? me.color : 'var(--bg-raised)', color: '#fff', fontSize: 14, border: me.loggedIn ? undefined : '1px dashed var(--border-strong)' }}>{me.initials}</span>
+          <span className="avatar" style={{ width: 36, height: 36, background: me.loggedIn ? me.color : 'transparent', color: me.loggedIn ? '#0b0b0c' : 'var(--text-2)', fontSize: 13, border: me.loggedIn ? undefined : '1px solid var(--line-2)' }}>{me.initials}</span>
           <span className="col nav-user-name" style={{ gap: 0, lineHeight: 1.2 }}>
             <span>{me.name}</span>
-            {me.loggedIn && <span className="small muted mono">Nv. {me.level}</span>}
+            {me.loggedIn && <span className="small muted mono">Nv {me.level}</span>}
           </span>
         </Link>
       )}

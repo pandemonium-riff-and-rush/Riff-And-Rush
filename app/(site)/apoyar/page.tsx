@@ -17,13 +17,13 @@ export default function Support() {
           <div><div style={{ fontSize: 20, fontWeight: 600 }}>Donación libre</div><div className="small muted">Un aporte único, cuando quieras</div></div>
           <div className="row" role="group" aria-label="Monto" style={{ flexWrap: 'wrap', gap: 8 }}>
             {['[MONTO 1]', '[MONTO 2]', '[MONTO 3]', 'Otro'].map((l, i) => (
-              <button key={l} type="button" className="pill mono" aria-pressed={amt === i} onClick={() => setAmt(i)} style={amt === i ? { borderColor: 'var(--accent)', background: 'rgba(168,85,247,0.16)' } : undefined}>{l}</button>
+              <button key={l} type="button" className="pill mono" aria-pressed={amt === i} onClick={() => setAmt(i)} style={amt === i ? { borderColor: 'var(--accent)', background: 'rgba(255,61,139,0.16)' } : undefined}>{l}</button>
             ))}
           </div>
           <div className="row small"><Check />Tu nombre en la lista de apoyadores, si quieres</div>
           <button className="btn btn-s" type="button" style={{ marginTop: 'auto' }}>Donar</button>
         </div>
-        <div className="panel col" style={{ padding: 28, gap: 20, borderColor: 'var(--accent)', boxShadow: '0 0 40px rgba(168,85,247,0.15)' }}>
+        <div className="panel col" style={{ padding: 28, gap: 20, borderColor: 'var(--accent)', borderTop: '6px solid var(--spot)' }}>
           <div className="row"><div className="grow" style={{ fontSize: 20, fontWeight: 600 }}>Sin anuncios</div><span className="chip" style={{ color: 'var(--accent-link-hover)' }}>Más elegido</span></div>
           <div className="row" style={{ alignItems: 'baseline', gap: 6 }}><span className="mono" style={{ fontSize: 30, fontWeight: 700 }}>[PRECIO]</span><span className="muted">/ mes</span></div>
           <div className="row small"><Check />Sin nuestros anuncios en menús, resultados y rankings</div>
@@ -39,7 +39,7 @@ export default function Support() {
           <button className="btn btn-s" type="button" style={{ marginTop: 'auto' }}>Elegir Apoyador+</button>
         </div>
       </div>
-      <div role="note" className="row" style={{ alignItems: 'flex-start', padding: '18px 20px', borderRadius: 4, background: 'rgba(255,210,63,0.08)', border: '1px solid rgba(255,210,63,0.45)', color: '#F2E6B3' }}>
+      <div role="note" className="row" style={{ alignItems: 'flex-start', padding: '18px 20px', borderRadius: 0, background: 'rgba(255,210,63,0.08)', border: '1px solid rgba(255,210,63,0.45)', color: '#F2E6B3' }}>
         <span><strong style={{ color: 'var(--warn)' }}>Quitar anuncios elimina nuestros anuncios.</strong> Los anuncios propios de YouTube no dependen de nosotros: si el video tiene uno, se va a mostrar igual (salvo que tengas YouTube Premium).</span>
       </div>
       <div className="row" style={{ flexWrap: 'wrap' }}>

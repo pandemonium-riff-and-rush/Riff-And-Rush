@@ -73,7 +73,7 @@ export default function HeroHighway() {
   return (
     <div aria-hidden="true" className="hero-hw" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 700, pointerEvents: 'none' }}>
       <canvas ref={ref} style={{ position: 'absolute', right: 40, top: 20, width: HW * 0.78, height: HH * 0.78, opacity: 0.9 }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #0E0B20 0%, rgba(14,11,32,0.6) 35%, rgba(14,11,32,0) 70%), linear-gradient(0deg, #0E0B20 0%, rgba(14,11,32,0) 30%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #0b0b0c 0%, rgba(11,11,12,0.6) 35%, rgba(11,11,12,0) 70%), linear-gradient(0deg, #0b0b0c 0%, rgba(11,11,12,0) 30%)' }} />
     </div>
   );
 }

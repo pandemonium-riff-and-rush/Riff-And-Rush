@@ -93,11 +93,16 @@ export interface RenderState {
 
 const MULT_EDGE: Record<number, string> = { 1: '', 2: '#3FA9FF', 3: '#3DDC84', 4: '#FF4D6D' };
 
+/*
+ * La autopista es tinta y papel: fondo negro de fotocopia y los bordes, los
+ * trastes y la línea de golpe en blanco papel. El color queda reservado para
+ * lo que de verdad informa: el carril de cada nota y el estado del juego.
+ */
 const THEMES: Record<string, { top: string; bottom: string; edge: string }> = {
-  estadio: { top: '#050414', bottom: '#1C1238', edge: '#A855F7' },
-  madera: { top: '#0C0804', bottom: '#3A2418', edge: '#FF8A3D' },
-  hielo: { top: '#040A14', bottom: '#12304A', edge: '#3FA9FF' },
-  contraste: { top: '#000000', bottom: '#111111', edge: '#F2F0FF' }
+  estadio: { top: '#060607', bottom: '#15151a', edge: '#e9e6de' },
+  madera: { top: '#080604', bottom: '#241a12', edge: '#e9e6de' },
+  hielo: { top: '#04070a', bottom: '#0f1a24', edge: '#e9e6de' },
+  contraste: { top: '#000000', bottom: '#000000', edge: '#ffffff' }
 };
 
 export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
@@ -147,7 +152,7 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
       g.addColorStop(0, rgba(col, 0.32));
       g.addColorStop(1, rgba(col, 0));
       ctx.fillStyle = g;
-    } else ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.08)';
+    } else ctx.fillStyle = i % 2 ? 'rgba(233,230,222,0.022)' : 'rgba(0,0,0,0.16)';
     ctx.fill();
   }
 
@@ -157,14 +162,16 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const y = yOf((g.t - s.t) / s.window);
     const w = W(y);
     const strong = g.strong;
-    ctx.fillStyle = strong ? 'rgba(210,200,255,0.42)' : 'rgba(200,190,255,0.13)';
+    ctx.fillStyle = strong ? 'rgba(233,230,222,0.40)' : 'rgba(233,230,222,0.11)';
     ctx.fillRect((gw - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
   }
 
   // Cuerdas por carril
   for (let i = 0; i < n; i++) {
-    ctx.strokeStyle = rgba(LANE_COLORS[i], s.pressed[i] ? 0.95 : 0.4);
-    ctx.lineWidth = s.pressed[i] ? 3 : 1.5;
+    // En reposo son filetes de papel: cinco líneas de colores subiendo era un
+    // arcoíris compitiendo con las notas, que es lo único que hay que leer.
+    ctx.strokeStyle = s.pressed[i] ? rgba(LANE_COLORS[i], 0.95) : 'rgba(233,230,222,0.10)';
+    ctx.lineWidth = s.pressed[i] ? 3 : 1;
     ctx.beginPath();
     ctx.moveTo((gw - gtop) / 2 + (gtop * (i + 0.5)) / n, 0);
     ctx.lineTo((gw * (i + 0.5)) / n, gh);
@@ -173,18 +180,21 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
 
   // Neblina arriba: da profundidad y esconde la aparición de las notas
   const fog = ctx.createLinearGradient(0, 0, 0, gh * 0.32);
-  fog.addColorStop(0, 'rgba(5,4,20,0.95)');
-  fog.addColorStop(1, 'rgba(5,4,20,0)');
+  fog.addColorStop(0, 'rgba(6,6,7,0.97)');
+  fog.addColorStop(1, 'rgba(6,6,7,0)');
   ctx.fillStyle = fog;
   ctx.fillRect(0, 0, gw, gh * 0.32);
   ctx.restore();
 
   // ---------- Bordes con neón (laten con el ritmo) ----------
   ctx.save();
+  // Un halo difuso en reposo es decoración y cuesta cuadros. El brillo queda
+  // para el modo Leyenda, donde sí avisa de un cambio de estado.
   ctx.shadowColor = edge;
-  ctx.shadowBlur = LOW ? 0 : 14 + pulse * 22 + (baseMult >= 4 ? 10 : 0);
+  ctx.shadowBlur = LOW || !s.boosting ? 0 : 16 + pulse * 18;
+  ctx.globalAlpha = 0.55 + pulse * 0.45;
   ctx.strokeStyle = edge;
-  ctx.lineWidth = 4 + pulse * 2;
+  ctx.lineWidth = 3 + pulse * 2;
   ctx.beginPath();
   ctx.moveTo((gw - gtop) / 2, 0); ctx.lineTo(0, gh);
   ctx.moveTo((gw + gtop) / 2, 0); ctx.lineTo(gw, gh);
@@ -204,7 +214,7 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     if (y < gh * 0.2) continue;
     const w = W(y);
     const r = 1.5 + (y / gh) * 3.5;
-    ctx.globalAlpha = Math.min(1, (y / gh) * 1.4) * (k % 2 ? 0.55 : 1);
+    ctx.globalAlpha = Math.min(1, (y / gh) * 1.4) * (k % 2 ? 0.3 : 0.62);
     ctx.beginPath(); ctx.arc((gw - w) / 2 + 3, y, r, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc((gw + w) / 2 - 3, y, r, 0, Math.PI * 2); ctx.fill();
   }
@@ -216,14 +226,13 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const w = W(ghit);
     const x0 = (gw - w) / 2;
     ctx.save();
-    const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
-    g.addColorStop(0, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
-    g.addColorStop(0.5, `rgba(255,255,255,${0.35 + pulse * 0.4})`);
-    g.addColorStop(1, rgba(edge.startsWith('#') ? edge : '#A855F7', 0));
-    ctx.fillStyle = g;
-    ctx.shadowColor = edge;
-    ctx.shadowBlur = LOW ? 0 : 12 + pulse * 14;
-    ctx.fillRect(x0, ghit - 2, w, 4);
+    // Barra maciza de papel: el filete grueso que separa las cosas en un afiche.
+    ctx.fillStyle = s.boosting ? '#ffc53d' : '#e9e6de';
+    ctx.globalAlpha = 0.72 + pulse * 0.28;
+    ctx.shadowColor = s.boosting ? '#ffc53d' : 'transparent';
+    ctx.shadowBlur = LOW || !s.boosting ? 0 : 14;
+    ctx.fillRect(x0, ghit - 3, w, 6);
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
@@ -261,31 +270,27 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const missK = fx ? Math.max(0, 1 - (nowSec - fx.missAt[i]) / 0.25) : 0;
     const y = ghit + (on ? 3 : 0);
     ctx.save();
-    ctx.fillStyle = shade(col, 0.3);
-    ctx.beginPath(); ctx.ellipse(x, ghit + sh * 0.22, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
-    const g = ctx.createRadialGradient(x, y - sh * 0.15, 2, x, y, size / 2);
-    if (on) { g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, shade(col, 1.4)); g.addColorStop(1, col); }
-    else { g.addColorStop(0, '#2A2448'); g.addColorStop(1, '#0A0916'); }
-    ctx.fillStyle = g;
-    ctx.shadowColor = missK > 0 ? '#FF2D4D' : col;
-    ctx.shadowBlur = LOW ? 0 : on ? 34 : 10 + missK * 20;
+    // Sombra plana debajo: el receptor está apoyado, no flotando en una nube.
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath(); ctx.ellipse(x, ghit + sh * 0.26, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    // Apagado: hueco de tinta. Apretado: tinta plana del color del carril.
+    ctx.fillStyle = on ? col : '#0e0e10';
+    ctx.shadowColor = missK > 0 ? '#ff5a5a' : col;
+    ctx.shadowBlur = LOW ? 0 : on ? 22 : missK * 22;
     ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.lineWidth = size * 0.1;
-    ctx.strokeStyle = missK > 0 ? `rgb(255,${Math.round(77 + (1 - missK) * 100)},${Math.round(109 * (1 - missK))})` : col;
+    ctx.strokeStyle = missK > 0 ? '#ff5a5a' : on ? '#e9e6de' : col;
+    ctx.globalAlpha = on || missK > 0 ? 1 : 0.8;
     ctx.beginPath(); ctx.ellipse(x, y, size / 2 - size * 0.05, sh / 2 - size * 0.05, 0, 0, Math.PI * 2); ctx.stroke();
-    // brillo superior
-    ctx.globalAlpha = on ? 0.9 : 0.35;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath(); ctx.ellipse(x - size * 0.12, y - sh * 0.22, size * 0.16, sh * 0.1, -0.2, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
     if (flash >= 0 && flash < 0.18) {
       const k = 1 - flash / 0.18;
       const fg = ctx.createRadialGradient(x, ghit - size * 0.2, 2, x, ghit - size * 0.45, size * 0.7);
       fg.addColorStop(0, `rgba(255,255,255,${0.95 * k})`);
-      fg.addColorStop(0.3, `rgba(255,210,63,${0.8 * k})`);
-      fg.addColorStop(0.65, rgba(col, 0.5 * k));
+      fg.addColorStop(0.3, `rgba(233,230,222,${0.72 * k})`);
+      fg.addColorStop(0.65, rgba(col, 0.45 * k));
       fg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = fg;
       ctx.beginPath(); ctx.ellipse(x, ghit - size * 0.4, size * 0.42, size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
@@ -406,33 +411,35 @@ function drawGem(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n:
   }
   ctx.save();
   ctx.globalAlpha = alpha;
-  // volumen inferior
-  ctx.fillStyle = shade(col, 0.4);
-  ctx.beginPath(); ctx.ellipse(x, y + h * 0.3, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
-  // cuerpo con brillo
-  const g = ctx.createRadialGradient(x, y - h * 0.2, 1, x, y, w / 2);
-  g.addColorStop(0, shade(col, 1.55));
-  g.addColorStop(0.55, col);
-  g.addColorStop(1, shade(col, 0.5));
-  ctx.fillStyle = g;
+  /*
+   * Nota impresa: tinta plana del carril con un contorno de papel, no una
+   * perla con degradado radial y halo. Se lee igual de rápido a toda
+   * velocidad, pesa menos por cuadro y es del mismo mundo que la web.
+   */
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.ellipse(x, y + h * 0.34, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = col;
   ctx.shadowColor = col;
-  ctx.shadowBlur = LOW ? 0 : 12;
+  ctx.shadowBlur = LOW ? 0 : 8;
   ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.lineWidth = Math.max(1.5, h * 0.08);
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = Math.max(1.5, h * 0.1);
+  ctx.strokeStyle = '#0b0b0c';
   ctx.stroke();
+  // Borde de papel arriba: da el volumen sin usar un degradado.
+  ctx.globalAlpha = alpha * 0.85;
+  ctx.lineWidth = Math.max(1, h * 0.07);
+  ctx.strokeStyle = '#e9e6de';
+  ctx.beginPath(); ctx.ellipse(x, y - h * 0.06, w / 2 - h * 0.1, h / 2 - h * 0.1, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+  ctx.globalAlpha = alpha;
   if (nt.hopo || tech === 'hopo') {
-    // Ligado: anillo hueco, sin relleno de púa
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath(); ctx.ellipse(x, y, w * 0.2, h * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+    // Ligado: hueco de tinta al centro
+    ctx.fillStyle = '#0b0b0c';
+    ctx.beginPath(); ctx.ellipse(x, y, w * 0.2, h * 0.26, 0, 0, Math.PI * 2); ctx.fill();
   } else if (tech === 'mute') {
-    // Chug: dos rayas apagadas en vez de brillo
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillRect(x - w * 0.22, y - h * 0.06, w * 0.44, Math.max(1, h * 0.09));
-  } else {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.beginPath(); ctx.ellipse(x, y - h * 0.18, w * 0.26, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+    // Chug: una raya apagada
+    ctx.fillStyle = 'rgba(11,11,12,0.55)';
+    ctx.fillRect(x - w * 0.22, y - h * 0.06, w * 0.44, Math.max(1, h * 0.11));
   }
   ctx.restore();
 }
