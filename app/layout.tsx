@@ -45,7 +45,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body><AuthProvider>{children}</AuthProvider></body>
+      {/*
+        * suppressHydrationWarning solo acá, en el <body>:
+        * extensiones como Bitdefender o los gestores de contraseñas le cuelgan
+        * atributos (bis_skin_checked, bis_register, __processed_…) antes de que
+        * React hidrate, y eso llenaba la consola de desarrollo con un aviso que
+        * no es un error de la página. Solo tapa el desajuste de atributos DE
+        * ESTE elemento: cualquier problema real de hidratación adentro sigue
+        * avisando igual.
+        */}
+      <body suppressHydrationWarning><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }
