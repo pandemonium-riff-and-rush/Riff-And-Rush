@@ -1,14 +1,23 @@
 /**
- * Fondo del juego estilo visualizador: barras de decibeles, láseres, ondas y partículas.
- * Reacciona a la música de dos formas:
- *  - Por defecto, con las notas del chart (están puestas sobre la música, así que siguen su ritmo),
- *    el BPM y la racha del jugador.
- *  - Opcional, con el sonido real que capta el micrófono (el audio de YouTube no se puede leer directo).
+ * Fondo de la pantalla de juego: el muro de afiches detrás del escenario.
+ *
+ * Antes era un visualizador de discoteca (seis láseres, barras de ecualizador con
+ * degradado, partículas de colores). Con la paleta nueva todo eso se dibujaba en
+ * blanco apagado y quedaba una niebla turbia que no decía nada.
+ *
+ * Ahora son tres capas, todas del mismo mundo que la web:
+ *  1. El muro: afiches pegados unos sobre otros, dibujado UNA vez y reusado.
+ *  2. La luz del escenario: un solo foco que respira con el pulso, no seis.
+ *  3. El medidor: una tira impresa abajo que reacciona al chart o al micrófono.
+ *
+ * Reacciona a la música de dos formas: por defecto con las notas del chart (están
+ * puestas sobre la música, así que siguen su ritmo), y opcionalmente con el sonido
+ * real del micrófono (el audio de YouTube no se puede leer directo).
  */
 
 export const BW = 1440;
 export const BH = 900;
-const BARS = 72;
+const BARS = 64;
 
 export interface BackdropInput {
   t: number;
@@ -23,39 +32,86 @@ export interface BackdropInput {
   /** Espectro real del micrófono (0..1 por banda) si está activo. */
   spectrum?: Float32Array | null;
   playing: boolean;
+  /** Miniatura de la canción, si cargó: se imprime enorme detrás del muro. */
+  cover?: CanvasImageSource | null;
+  /** Estilo elegido en Ajustes. Solo 'neon' cambia de mundo. */
+  theme?: string;
 }
 
-interface Mote { x: number; y: number; r: number; vy: number; hue: number; a: number }
 interface Wave { life: number; strong: boolean }
 
-const MULT_COLORS = ['#e9e6de', '#e9e6de', '#3fa9ff', '#3ddc84', '#ff4d6d'];
-const BAND_COLORS = ['#3DDC84', '#FF4D6D', '#FFD23F', '#3FA9FF', '#FF8A3D', '#B26BFF'];
-
-function hexA(hex: string, a: number) {
+function rgba(hex: string, a: number) {
   const v = parseInt(hex.slice(1), 16);
   return `rgba(${v >> 16},${(v >> 8) & 255},${v & 255},${a})`;
+}
+
+/** Ruido reproducible: el muro tiene que verse igual en cada partida. */
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 export class Backdrop {
   private bars = new Float32Array(BARS);
   private peaks = new Float32Array(BARS);
-  private motes: Mote[] = [];
   private waves: Wave[] = [];
   private lastBeat = -1;
   private last = 0;
+  /** El muro se dibuja una vez y después solo se copia. */
+  private wall: HTMLCanvasElement | null = null;
+  private wallTheme = '';
 
-  constructor() {
-    for (let i = 0; i < 60; i++) this.motes.push(this.newMote(true));
-  }
-
-  private newMote(anywhere = false): Mote {
-    return { x: Math.random() * BW, y: anywhere ? Math.random() * BH : BH + 20, r: 1 + Math.random() * 3.5, vy: 12 + Math.random() * 40, hue: Math.random(), a: 0.15 + Math.random() * 0.45 };
+  /** Afiches pegados: rectángulos de tinta girados un grado, con una tira de cinta. */
+  private buildWall(neon: boolean) {
+    const c = document.createElement('canvas');
+    c.width = BW; c.height = BH;
+    const x = c.getContext('2d');
+    if (!x) return c;
+    const r = rng(20261106);
+    x.fillStyle = neon ? '#0a0818' : '#0a0a0b';
+    x.fillRect(0, 0, BW, BH);
+    for (let i = 0; i < 46; i++) {
+      const w = 130 + r() * 190;
+      const h = w * (1.2 + r() * 0.5);
+      const px = r() * (BW + 200) - 100;
+      const py = r() * (BH + 200) - 100;
+      const rot = (r() - 0.5) * 0.09;
+      x.save();
+      x.translate(px + w / 2, py + h / 2);
+      x.rotate(rot);
+      // El afiche: un papel muy apagado, casi tinta sobre tinta
+      const tono = 0.016 + r() * 0.03;
+      const rosa = r() < 0.17;
+      x.fillStyle = rosa ? `rgba(255,61,139,${tono * 1.5})`
+        : neon ? `rgba(168,130,255,${tono})` : `rgba(233,230,222,${tono})`;
+      x.fillRect(-w / 2, -h / 2, w, h);
+      // Una barra de título y unas líneas de texto, apenas insinuadas
+      x.fillStyle = rosa ? `rgba(255,61,139,${tono * 2.6})`
+        : neon ? `rgba(168,130,255,${tono * 1.9})` : `rgba(233,230,222,${tono * 1.9})`;
+      x.fillRect(-w / 2 + 8, -h / 2 + 10, w - 16, h * 0.16);
+      for (let k = 0; k < 3; k++) {
+        x.fillRect(-w / 2 + 8, -h / 2 + h * 0.26 + k * 12, (w - 16) * (0.5 + r() * 0.45), 3);
+      }
+      // Cinta en una esquina
+      if (r() < 0.45) {
+        x.fillStyle = `rgba(233,230,222,${tono * 2.4})`;
+        x.fillRect(-w / 2 - 6, -h / 2 - 4, 34, 11);
+      }
+      x.restore();
+    }
+    return c;
   }
 
   draw(ctx: CanvasRenderingContext2D, s: BackdropInput) {
     const now = performance.now() / 1000;
     const dt = this.last ? Math.min(0.05, now - this.last) : 0.016;
     this.last = now;
+    const neon = s.theme === 'neon';
     const beatLen = 60 / s.bpm;
     const beatF = s.t >= 0 ? (s.t / beatLen) % 1 : 1;
     const pulse = s.playing ? Math.pow(Math.max(0, 1 - beatF * 2.2), 2) : 0;
@@ -64,19 +120,17 @@ export class Backdrop {
       this.lastBeat = beatN;
       this.waves.push({ life: 0, strong: beatN % 4 === 0 });
     }
-    const main = s.boosting ? '#ffc53d' : MULT_COLORS[Math.min(4, Math.max(1, s.boosting ? s.mult / 2 : s.mult))];
+    const luz = s.boosting ? '#ffc53d' : neon ? '#a855f7' : '#e9e6de';
 
-    // ---------- Espectro objetivo ----------
+    // ---------- Nivel por banda ----------
     let level = 0;
     for (let b = 0; b < BARS; b++) {
       let v: number;
       if (s.spectrum && s.spectrum.length) {
-        // Micrófono: bandas logarítmicas (más detalle en graves)
         const f = Math.pow(b / BARS, 1.6) * (s.spectrum.length - 1);
         const i0 = Math.floor(f), k = f - i0;
         v = s.spectrum[i0] * (1 - k) + (s.spectrum[Math.min(s.spectrum.length - 1, i0 + 1)] ?? 0) * k;
       } else {
-        // Chart: cada carril alimenta una zona del espectro, los graves laten con el pulso
         const pos = (b / (BARS - 1)) * (s.lanes - 1);
         const l0 = Math.floor(pos), k = pos - l0;
         const e = (s.laneEnergy[l0] ?? 0) * (1 - k) + (s.laneEnergy[Math.min(s.lanes - 1, l0 + 1)] ?? 0) * k;
@@ -84,7 +138,6 @@ export class Backdrop {
         const flicker = 0.5 + 0.5 * Math.sin(s.t * (6 + (b % 7)) + b * 1.7);
         v = s.playing ? Math.min(1, e * (0.55 + flicker * 0.45) + pulse * bass * 0.55 + 0.06 + s.heat * 0.08 * flicker) : 0.04 + 0.02 * flicker;
       }
-      // Suavizado tipo vúmetro: sube rápido, baja lento
       const cur = this.bars[b];
       this.bars[b] = v > cur ? cur + (v - cur) * Math.min(1, dt * 30) : cur - Math.min(cur - v, dt * 1.6);
       this.peaks[b] = Math.max(this.bars[b], this.peaks[b] - dt * 0.35);
@@ -92,115 +145,117 @@ export class Backdrop {
     }
     level /= BARS;
 
-    // ---------- Fondo ----------
-    const g = ctx.createLinearGradient(0, 0, 0, BH);
-    g.addColorStop(0, '#060607');
-    g.addColorStop(0.55, '#0d0d10');
-    g.addColorStop(1, s.boosting ? '#1a1405' : '#15151a');
-    ctx.fillStyle = g;
+    // ---------- 1. La miniatura de la canción, enorme y oscura ----------
+    ctx.fillStyle = neon ? '#07061a' : '#070708';
     ctx.fillRect(0, 0, BW, BH);
+    if (s.cover) {
+      ctx.save();
+      ctx.globalAlpha = 0.3 + level * 0.1;
+      ctx.filter = 'grayscale(1) contrast(1.5) brightness(0.42)';
+      // Encuadre que cubre, centrado un poco arriba (el escenario va abajo)
+      ctx.drawImage(s.cover, -60, -110, BW + 120, (BW + 120) * 0.5625);
+      ctx.filter = 'none';
+      ctx.restore();
+      // Trama: la misma que en la web, para que sea el mismo material
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = ctx.createPattern(dotPattern(), 'repeat') ?? 'transparent';
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillRect(0, 0, BW, BH * 0.62);
+      ctx.restore();
+    }
 
-    // Halo detrás de la autopista
-    const haloR = 460 + level * 260 + pulse * 60;
-    const halo = ctx.createRadialGradient(720, 560, 40, 720, 560, haloR);
-    halo.addColorStop(0, hexA(main, 0.32 + level * 0.3));
-    halo.addColorStop(0.5, hexA(main, 0.1 + level * 0.12));
-    halo.addColorStop(1, hexA(main, 0));
+    // ---------- 2. El muro de afiches ----------
+    if (!this.wall || this.wallTheme !== (neon ? 'neon' : 'papel')) {
+      this.wall = this.buildWall(neon);
+      this.wallTheme = neon ? 'neon' : 'papel';
+    }
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(this.wall, 0, 0);
+    ctx.globalAlpha = 1;
+
+    // ---------- 3. La luz del escenario: una sola, que respira ----------
+    const r0 = 500 + level * 260 + pulse * 90;
+    const halo = ctx.createRadialGradient(720, 700, 30, 720, 700, r0);
+    halo.addColorStop(0, rgba(luz, (neon ? 0.34 : 0.24) + level * 0.2 + s.heat * 0.1));
+    halo.addColorStop(0.42, rgba(luz, (neon ? 0.12 : 0.085) + level * 0.07));
+    halo.addColorStop(1, rgba(luz, 0));
     ctx.fillStyle = halo;
     ctx.fillRect(0, 0, BW, BH);
 
+    // Dos haces desde arriba, apenas: dan el techo del lugar sin hacer discoteca
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-
-    // ---------- Láseres ----------
-    const beams = 6;
-    for (let i = 0; i < beams; i++) {
-      const fromLeft = i < beams / 2;
-      const ox = fromLeft ? 90 + i * 130 : BW - 90 - (i - beams / 2) * 130;
-      const sway = Math.sin(s.t * (0.35 + i * 0.07) + i * 1.3) * 0.5;
-      const ang = (fromLeft ? 0.35 : -0.35) + sway * 0.6;
-      const len = 1100;
-      const w = 34 + s.heat * 50;
-      const a = (0.05 + pulse * 0.18 + s.heat * 0.14 + level * 0.12) * (s.playing ? 1 : 0.5);
-      const ex = ox + Math.sin(ang) * len, ey = Math.cos(ang) * len;
-      const px = Math.cos(ang) * w, py = -Math.sin(ang) * w;
-      const col = i % 2 ? main : '#ff3d8b';
-      const lg = ctx.createLinearGradient(ox, 0, ex, ey);
-      lg.addColorStop(0, hexA(col, a * 1.6));
-      lg.addColorStop(1, hexA(col, 0));
+    for (const lado of [-1, 1]) {
+      const sway = Math.sin(s.t * 0.3 + lado) * 70;
+      const ox = 720 + lado * 430 + sway;
+      const a = (0.03 + pulse * 0.05 + s.heat * 0.05) * (s.playing ? 1 : 0.4) * (neon ? 2.2 : 1);
+      const lg = ctx.createLinearGradient(ox, 0, 720 + lado * 120, BH * 0.8);
+      lg.addColorStop(0, rgba(luz, a * 1.8));
+      lg.addColorStop(1, rgba(luz, 0));
       ctx.fillStyle = lg;
       ctx.beginPath();
-      ctx.moveTo(ox, -10);
-      ctx.lineTo(ex + px, ey + py);
-      ctx.lineTo(ex - px, ey - py);
-      ctx.closePath();
-      ctx.fill();
-      // núcleo del láser
-      ctx.strokeStyle = hexA('#FFFFFF', a * 0.9);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(ox, -10); ctx.lineTo(ox + Math.sin(ang) * 700, Math.cos(ang) * 700); ctx.stroke();
+      ctx.moveTo(ox - 40, -10); ctx.lineTo(ox + 40, -10);
+      ctx.lineTo(720 + lado * 230, BH * 0.85); ctx.lineTo(720 + lado * 10, BH * 0.85);
+      ctx.closePath(); ctx.fill();
     }
+    ctx.restore();
 
-    // ---------- Ondas del bombo ----------
+    // ---------- Golpe del bombo: el muro se sacude de luz ----------
     for (const w of this.waves) {
       w.life += dt;
-      const k = w.life / (w.strong ? 1.1 : 0.7);
+      const k = w.life / (w.strong ? 1 : 0.6);
       if (k >= 1) continue;
-      ctx.strokeStyle = hexA(main, (1 - k) * (w.strong ? 0.4 : 0.18));
-      ctx.lineWidth = (w.strong ? 6 : 3) * (1 - k) + 1;
+      ctx.strokeStyle = rgba(luz, (1 - k) * (w.strong ? 0.22 : 0.09));
+      ctx.lineWidth = (w.strong ? 5 : 2) * (1 - k) + 1;
       ctx.beginPath();
-      ctx.ellipse(720, 600, 200 + k * 700, (200 + k * 700) * 0.38, 0, 0, Math.PI * 2);
+      ctx.ellipse(720, 660, 220 + k * 720, (220 + k * 720) * 0.32, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
-    this.waves = this.waves.filter((w) => w.life < 1.2);
+    this.waves = this.waves.filter((w) => w.life < 1.1);
 
-    // ---------- Barras de decibeles (abajo, con reflejo) ----------
-    const baseY = BH - 40;
+    // ---------- 4. El medidor, en el canto de arriba ----------
+    // Arriba porque abajo quedaba tapado por el marcador. Es una tira impresa:
+    // bloques macizos, sin degradado ni reflejo.
     const bw = BW / BARS;
     for (let b = 0; b < BARS; b++) {
       const v = this.bars[b];
-      const h = 18 + v * 330;
-      const x = b * bw + 2;
-      const col = BAND_COLORS[Math.min(5, Math.floor((b / BARS) * s.lanes))];
-      const bg = ctx.createLinearGradient(0, baseY - h, 0, baseY);
-      bg.addColorStop(0, hexA(col, 0.75));
-      bg.addColorStop(1, hexA(col, 0.12));
-      ctx.fillStyle = bg;
-      // barra hecha de segmentos, como un ecualizador
-      const segH = 7, gap = 3;
-      for (let y = baseY - segH; y > baseY - h; y -= segH + gap) ctx.fillRect(x, y, bw - 4, segH);
-      // tope que cae lento
-      ctx.fillStyle = hexA('#FFFFFF', 0.55);
-      ctx.fillRect(x, baseY - 18 - this.peaks[b] * 330 - 6, bw - 4, 3);
-      // reflejo
-      ctx.fillStyle = hexA(col, 0.08);
-      ctx.fillRect(x, baseY + 4, bw - 4, h * 0.18);
+      const h = 3 + v * 46;
+      ctx.fillStyle = rgba(neon ? '#c084fc' : '#e9e6de', 0.08 + v * 0.22);
+      ctx.fillRect(b * bw + 2, 0, bw - 4, h);
     }
 
-    // ---------- Partículas ----------
-    const want = 40 + Math.floor(s.heat * 80);
-    while (this.motes.length < want) this.motes.push(this.newMote());
-    for (const m of this.motes) {
-      m.y -= m.vy * dt * (1 + level * 2);
-      m.x += Math.sin(now * 0.8 + m.hue * 10) * 8 * dt;
-      if (m.y < -20) Object.assign(m, this.newMote());
-      const col = m.hue < 0.33 ? main : m.hue < 0.66 ? '#ff3d8b' : '#e9e6de';
-      ctx.fillStyle = hexA(col, m.a * (0.4 + pulse * 0.6));
-      ctx.beginPath(); ctx.arc(m.x, m.y, m.r * (1 + pulse * 0.5), 0, Math.PI * 2); ctx.fill();
-    }
-    if (this.motes.length > want + 20) this.motes.length = want + 20;
-    ctx.restore();
-
-    // Viñeta para que los paneles se lean bien
-    const vg = ctx.createRadialGradient(720, 450, 300, 720, 450, 900);
+    // Viñeta: deja respirar los paneles de los costados
+    const vg = ctx.createRadialGradient(720, 520, 320, 720, 520, 980);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.6)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, BW, BH);
   }
 }
 
-/** Escucha el sonido del ambiente (parlantes) con el micrófono y entrega un espectro 0..1. */
+/** Trama de medio tono de 4 px, construida una sola vez. */
+let dots: HTMLCanvasElement | null = null;
+function dotPattern() {
+  if (dots) return dots;
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 4;
+  const x = c.getContext('2d');
+  if (x) {
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, 4, 4);
+    x.fillStyle = '#0b0b0c';
+    x.beginPath(); x.arc(2, 2, 1.25, 0, Math.PI * 2); x.fill();
+  }
+  dots = c;
+  return c;
+}
+
+/**
+ * Lector del micrófono: el audio de YouTube no se puede leer directo desde la
+ * página, así que quien quiera que el fondo siga la música de verdad presta el
+ * micrófono y el espectro sale de ahí.
+ */
 export class MicAnalyser {
   private ctx: AudioContext | null = null;
   private an: AnalyserNode | null = null;
@@ -239,3 +294,4 @@ export class MicAnalyser {
     this.ctx = null; this.an = null;
   }
 }
+

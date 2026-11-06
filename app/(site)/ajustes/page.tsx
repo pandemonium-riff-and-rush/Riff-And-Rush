@@ -5,12 +5,10 @@ import { LANE_COLORS } from '@/lib/chart/types';
 import { DEFAULT_SETTINGS, getSettings, saveSettings, type Settings } from '@/lib/data/store';
 import { connectedPads, learnMidiNote, learnPadButton } from '@/lib/game/input';
 
-const THEMES: { id: Settings['theme']; name: string; bg: string; edge: string }[] = [
-  { id: 'estadio', name: 'Estadio', bg: '#15151a', edge: '#e9e6de' },
-  { id: 'madera', name: 'Madera', bg: '#3A2418', edge: '#FF8A3D' },
-  { id: 'hielo', name: 'Hielo', bg: '#12304A', edge: '#3FA9FF' },
-  { id: 'contraste', name: 'Alto contraste', bg: '#000000', edge: '#e9e6de' }
-];
+import { HIGHWAY_THEMES } from '@/lib/game/render';
+
+/** Los estilos vienen del propio motor, así que nunca se desincronizan. */
+const THEMES = HIGHWAY_THEMES;
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
@@ -78,15 +76,34 @@ export default function SettingsPage() {
         <section id="visual" className="panel panel-pad col" style={{ gridColumn: '1 / -1' }}>
           <h2 style={{ fontSize: 20 }}>Visual</h2>
           <div className="row" style={{ gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div className="col" style={{ gap: 10 }}>
-              <span className="small muted">Tema de la autopista</span>
-              <div className="row" role="group" aria-label="Tema">
-                {THEMES.map((t) => (
-                  <button key={t.id} type="button" aria-label={t.name} aria-pressed={s.theme === t.id} onClick={() => update({ theme: t.id })}
-                    style={{ width: 56, height: 56, borderRadius: 0, cursor: 'pointer', background: t.bg, border: `2px solid ${s.theme === t.id ? t.edge : 'var(--border)'}`, boxShadow: `inset 0 -14px 0 ${t.edge}` }} />
-                ))}
+            <div className="col grow" style={{ gap: 10, minWidth: 300 }}>
+              <span className="small muted">Estilo de la autopista</span>
+              <div className="row" role="group" aria-label="Estilo de la autopista" style={{ gap: 8, flexWrap: 'wrap' }}>
+                {THEMES.map((t) => {
+                  const on = s.theme === t.id;
+                  return (
+                    <button key={t.id} type="button" title={t.desc} aria-label={`${t.name}. ${t.desc}`} aria-pressed={on}
+                      onClick={() => update({ theme: t.id as Settings['theme'] })}
+                      style={{ padding: 0, border: `2px solid ${on ? 'var(--paper)' : 'var(--line-2)'}`, background: 'transparent', cursor: 'pointer', width: 96 }}>
+                      {/* Vista previa: el fondo, los bordes y tres notas del estilo */}
+                      <span aria-hidden="true" style={{ display: 'block', position: 'relative', height: 58, overflow: 'hidden', background: `linear-gradient(180deg, ${t.top}, ${t.bottom})` }}>
+                        <span style={{ position: 'absolute', left: 26, top: 0, bottom: 0, width: 2, background: t.edge, transform: 'skewX(-14deg)', opacity: t.glow ? 1 : .75 }} />
+                        <span style={{ position: 'absolute', right: 26, top: 0, bottom: 0, width: 2, background: t.edge, transform: 'skewX(14deg)', opacity: t.glow ? 1 : .75 }} />
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} style={{
+                            position: 'absolute', left: 24 + i * 20, top: 14 + i * 11, width: 16, height: 7,
+                            borderRadius: '50%', background: LANE_COLORS[i],
+                            boxShadow: t.glow ? `0 0 7px ${LANE_COLORS[i]}` : 'inset 0 0 0 1px rgba(0,0,0,.6)'
+                          }} />
+                        ))}
+                        <span style={{ position: 'absolute', left: 14, right: 14, bottom: 9, height: 3, background: t.edge, opacity: .9 }} />
+                      </span>
+                      <span className="cond" style={{ display: 'block', padding: '6px 4px', fontSize: 11, letterSpacing: '.04em', background: on ? 'var(--paper)' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-2)' }}>{t.name}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <span className="small">{THEMES.find((t) => t.id === s.theme)?.name}</span>
+              <span className="small muted">{THEMES.find((t) => t.id === s.theme)?.desc}</span>
             </div>
             <div className="col" style={{ gap: 10 }}>
               <span className="small muted">Efectos visuales</span>

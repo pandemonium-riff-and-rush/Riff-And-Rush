@@ -157,7 +157,12 @@ export default function SongDetail() {
             <span className="muted">Tu mejor en {info.name}</span><span className="mono" style={{ fontWeight: 700 }}>{best ? best.score.toLocaleString('es-CL') : '—'}</span>
           </div>
 
-          <div className="panel col" style={{ padding: 16, gap: 12 }}>
+          <Link className="btn btn-p" href={playHref} style={{ height: 60, fontSize: 19 }}>
+            {practiceOn ? '▶ Practicar' : `▶ Jugar en ${info.name}`}
+          </Link>
+          <Link className="btn btn-s" href={`/jugar/${chart.id}?d=${sel}&auto=1`} title="La canción se toca sola para que veas cómo es">Ver demo</Link>
+
+          <div className="panel col" style={{ padding: 16, gap: 12, marginTop: 8 }}>
             <div className="row"><span className="label grow">Velocidad de notas</span><span className="mono small">{speed.toFixed(1)}×</span></div>
             <input type="range" min={1} max={3.5} step={0.1} value={speed} onChange={(e) => { const v = Number(e.target.value); setSpeed(v); saveSettings({ ...getSettings(), speed: v }); }} aria-label="Velocidad de notas" />
             <span className="label">Modificadores</span>
@@ -200,7 +205,7 @@ export default function SongDetail() {
                 <span className="avatar" style={{ width: 28, height: 28, background: r.color, fontSize: 11 }}>{r.initials}</span>
                 <span className="grow row" style={{ gap: 6, fontSize: 14, fontWeight: 500, minWidth: 0 }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                  {r.mods.map((m) => <span key={m} className="mono" title={modName(m)} style={{ fontSize: 10, padding: '1px 4px', borderRadius: 2, border: '1px solid var(--accent)', color: '#C084FC' }}>{MOD_SHORT[m] ?? m}</span>)}
+                  {r.mods.map((m) => <span key={m} className="mono" title={modName(m)} style={{ fontSize: 10, padding: '1px 4px', borderRadius: 2, border: '1px solid var(--line-2)', color: 'var(--text-2)' }}>{MOD_SHORT[m] ?? m}</span>)}
                 </span>
                 <span className="small muted">{r.acc} %</span>
                 <span className="mono" style={{ width: 92, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{r.score.toLocaleString('es-CL')}</span>
@@ -216,11 +221,17 @@ export default function SongDetail() {
       </div>
 
       <div className="row" style={{ paddingTop: 20, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        <Link className="btn btn-p" href={playHref} style={{ height: 56, padding: '0 40px', fontSize: 18 }}>{practiceOn ? '▶ Practicar' : `▶ Jugar en ${info.name}`}</Link>
-        <Link className="btn btn-s" href={`/jugar/${chart.id}?d=${sel}&auto=1`} title="La canción se toca sola para que veas cómo es">Ver demo</Link>
         <Link className="btn btn-s" href={`/editor?id=${chart.id}`}>Ver en editor</Link>
         <span className="grow" />
         <button className="btn btn-g" type="button" onClick={() => setReportOpen(true)}>Reportar un problema</button>
+      </div>
+
+      {/* En teléfono la columna es larguísima: la barra sigue al dedo para que
+          jugar nunca quede escondido más abajo. */}
+      <div className="jugar-fijo">
+        <Link className="btn btn-p grow" href={playHref} style={{ height: 52 }}>
+          {practiceOn ? '▶ Practicar' : `▶ Jugar en ${info.name}`}
+        </Link>
       </div>
 
       {reportOpen && (

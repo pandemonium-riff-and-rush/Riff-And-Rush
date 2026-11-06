@@ -103,6 +103,32 @@ arriba que da el volumen: ni degradado radial ni halo. El resplandor quedó
 reservado para el modo Leyenda, donde avisa de un cambio de estado real; sacarlo
 del resto también bajó el costo por cuadro en teléfonos.
 
+### El fondo del escenario
+
+Un muro de afiches pegados unos sobre otros, dibujado una sola vez en un lienzo
+aparte y copiado en cada cuadro. Encima: la miniatura de la canción, enorme,
+tramada y muy oscura, y una sola luz de escenario que respira con el pulso. Antes
+había seis láseres, barras de ecualizador con degradado y partículas de colores;
+con la paleta nueva todo eso se dibujaba en blanco apagado y quedaba una niebla
+turbia que no decía nada.
+
+### Estilos de autopista
+
+Se eligen en Ajustes y cambian **solo el juego**, nunca la web. Viven en
+`HIGHWAY_THEMES` (`lib/game/render.ts`), que es también la lista que dibuja Ajustes,
+así que no se pueden desincronizar.
+
+| Estilo | Qué es |
+|---|---|
+| **Afiche** (de la casa) | Tinta y papel. Notas de tinta plana, sin halos. |
+| **Neón** | El estilo anterior del juego: morado, bordes con brillo, notas con degradado. |
+| **Contraste** | Negro puro y blanco. Lo más legible a toda velocidad. |
+| **Madera** | Tablas de escenario, cálido y sin brillos. |
+| **Hielo** | Azul frío, con brillo. |
+
+Cada estilo declara si lleva halos (`glow`) y cómo se dibuja la nota (`gem`). Un
+halo cuesta cuadros, así que es una propiedad del estilo y no un adorno suelto.
+
 **Pendiente conocido:** los carriles todavía se distinguen solo por color. Para
 daltonismo hace falta darles forma o posición además del color.
 

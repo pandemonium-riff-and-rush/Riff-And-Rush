@@ -504,3 +504,34 @@ input[type=checkbox] { accent-color: var(--spot); }
 }
 .muro::-webkit-scrollbar { display: none; }
 .muro-pieza { flex: 0 0 198px; scroll-snap-align: start; scroll-snap-stop: always; border: 0; outline: 1px solid var(--line); outline-offset: -1px; }
+
+/* Barra de jugar pegada abajo, solo en pantallas chicas */
+.jugar-fijo { display: none; }
+@media (max-width: 900px) {
+  .jugar-fijo {
+    display: flex; position: sticky; bottom: 0; z-index: 25;
+    margin: 20px calc(var(--gutter) * -1) 0; padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom));
+    background: rgba(11,11,12,.94); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  }
+}
+
+/* =====================================================================
+   Teclas del teléfono
+   La tira entera es zona activa: sin espacios muertos entre carriles.
+   ===================================================================== */
+.pad {
+  position: relative;
+  border-right: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--lane) 11%, transparent);
+  transition: background .04s linear;
+}
+.pad:last-child { border-right: 0; }
+/* El punto grande dice dónde apretar sin tapar la autopista */
+.pad::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px;
+  margin: -15px 0 0 -15px; border-radius: 50%;
+  border: 2px solid var(--lane);
+  transition: transform .05s ease-out, background .05s linear;
+}
+.pad[data-on="1"] { background: color-mix(in srgb, var(--lane) 42%, transparent); }
+.pad[data-on="1"]::after { background: var(--lane); transform: scale(1.22); }

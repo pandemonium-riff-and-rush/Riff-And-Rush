@@ -93,17 +93,70 @@ export interface RenderState {
 
 const MULT_EDGE: Record<number, string> = { 1: '', 2: '#3FA9FF', 3: '#3DDC84', 4: '#FF4D6D' };
 
-/*
- * La autopista es tinta y papel: fondo negro de fotocopia y los bordes, los
- * trastes y la línea de golpe en blanco papel. El color queda reservado para
- * lo que de verdad informa: el carril de cada nota y el estado del juego.
+/**
+ * Estilos de autopista. Se eligen en Ajustes y solo cambian el juego, nunca la web.
+ *
+ * El de la casa ("Afiche") es tinta y papel: el color queda reservado para lo que
+ * de verdad informa, que es el carril de cada nota y el estado del juego. "Neón"
+ * es el estilo anterior del juego, con halos y notas con brillo, para quien lo
+ * prefiera.
  */
-const THEMES: Record<string, { top: string; bottom: string; edge: string }> = {
-  estadio: { top: '#060607', bottom: '#15151a', edge: '#e9e6de' },
-  madera: { top: '#080604', bottom: '#241a12', edge: '#e9e6de' },
-  hielo: { top: '#04070a', bottom: '#0f1a24', edge: '#e9e6de' },
-  contraste: { top: '#000000', bottom: '#000000', edge: '#ffffff' }
-};
+export interface HwTheme {
+  id: string;
+  name: string;
+  desc: string;
+  /** Fondo de la autopista, arriba y abajo. */
+  top: string;
+  bottom: string;
+  /** Bordes laterales. */
+  edge: string;
+  /** Cuerda de carril en reposo. */
+  line: string;
+  /** Traste fuerte (compás) y suave (tiempo). */
+  fret: [string, string];
+  /** Halos difusos. Cuestan cuadros, así que solo donde el estilo los pide. */
+  glow: boolean;
+  /** Cómo se dibuja la nota: tinta plana o perla con brillo. */
+  gem: 'print' | 'neon';
+}
+
+export const HIGHWAY_THEMES: HwTheme[] = [
+  {
+    id: 'estadio', name: 'Afiche', desc: 'Tinta y papel. El color solo donde informa.',
+    top: '#060607', bottom: '#15151a', edge: '#e9e6de', line: 'rgba(233,230,222,0.10)',
+    fret: ['rgba(233,230,222,0.40)', 'rgba(233,230,222,0.11)'], glow: false, gem: 'print'
+  },
+  {
+    id: 'neon', name: 'Neón', desc: 'El estilo anterior del juego: morado, halos y notas con brillo.',
+    top: '#050414', bottom: '#1c1238', edge: '#a855f7', line: 'lane',
+    fret: ['rgba(210,200,255,0.42)', 'rgba(200,190,255,0.13)'], glow: true, gem: 'neon'
+  },
+  {
+    id: 'contraste', name: 'Contraste', desc: 'Negro puro y blanco. Lo más legible a toda velocidad.',
+    top: '#000000', bottom: '#000000', edge: '#ffffff', line: 'rgba(255,255,255,0.18)',
+    fret: ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.16)'], glow: false, gem: 'print'
+  },
+  {
+    id: 'madera', name: 'Madera', desc: 'Tablas de escenario, cálido y sin brillos.',
+    top: '#080604', bottom: '#241a12', edge: '#e0c9a8', line: 'rgba(224,201,168,0.12)',
+    fret: ['rgba(224,201,168,0.38)', 'rgba(224,201,168,0.11)'], glow: false, gem: 'print'
+  },
+  {
+    id: 'hielo', name: 'Hielo', desc: 'Azul frío, con un poco de brillo.',
+    top: '#04070a', bottom: '#0f1a24', edge: '#7ec8ff', line: 'rgba(126,200,255,0.14)',
+    fret: ['rgba(126,200,255,0.40)', 'rgba(126,200,255,0.12)'], glow: true, gem: 'neon'
+  }
+];
+
+const THEMES: Record<string, HwTheme> = Object.fromEntries(HIGHWAY_THEMES.map((t) => [t.id, t]));
+
+/*
+ * Crear un degradado cuesta, y en un juego eso se paga sesenta veces por
+ * segundo. El fondo y la neblina solo cambian si cambia la geometría, el
+ * estilo o el modo Leyenda, así que se guardan hasta que eso pase.
+ */
+let bgCache: { k: string; g: CanvasGradient } | null = null;
+let fogCache: { k: string; g: CanvasGradient } | null = null;
 
 export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
   useGeo(s.geo ?? DESKTOP_GEO);
@@ -133,10 +186,14 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
   ctx.lineTo(gw, gh);
   ctx.lineTo(0, gh);
   ctx.closePath();
-  const bg = ctx.createLinearGradient(0, 0, 0, gh);
-  bg.addColorStop(0, th.top);
-  bg.addColorStop(1, s.boosting ? '#3A2A08' : th.bottom);
-  ctx.fillStyle = bg;
+  const bgK = `${gh}|${th.id}|${s.boosting ? 1 : 0}`;
+  if (!bgCache || bgCache.k !== bgK) {
+    const g = ctx.createLinearGradient(0, 0, 0, gh);
+    g.addColorStop(0, th.top);
+    g.addColorStop(1, s.boosting ? '#3A2A08' : th.bottom);
+    bgCache = { k: bgK, g };
+  }
+  ctx.fillStyle = bgCache.g;
   ctx.fill();
   ctx.clip();
 
@@ -148,11 +205,14 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     ctx.beginPath();
     ctx.moveTo(xt0, 0); ctx.lineTo(xt1, 0); ctx.lineTo(xb1, gh); ctx.lineTo(xb0, gh); ctx.closePath();
     if (s.pressed[i]) {
-      const g = ctx.createLinearGradient(0, ghit, 0, ghit - 360);
-      g.addColorStop(0, rgba(col, 0.32));
-      g.addColorStop(1, rgba(col, 0));
-      ctx.fillStyle = g;
-    } else ctx.fillStyle = i % 2 ? 'rgba(233,230,222,0.022)' : 'rgba(0,0,0,0.16)';
+      if (LOW) ctx.fillStyle = rgba(col, 0.16);
+      else {
+        const g = ctx.createLinearGradient(0, ghit, 0, ghit - 360);
+        g.addColorStop(0, rgba(col, 0.32));
+        g.addColorStop(1, rgba(col, 0));
+        ctx.fillStyle = g;
+      }
+    } else ctx.fillStyle = i % 2 ? 'rgba(233,230,222,0.022)' : 'rgba(0,0,0,0.14)';
     ctx.fill();
   }
 
@@ -162,16 +222,18 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const y = yOf((g.t - s.t) / s.window);
     const w = W(y);
     const strong = g.strong;
-    ctx.fillStyle = strong ? 'rgba(233,230,222,0.40)' : 'rgba(233,230,222,0.11)';
+    ctx.fillStyle = strong ? th.fret[0] : th.fret[1];
     ctx.fillRect((gw - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
   }
 
   // Cuerdas por carril
   for (let i = 0; i < n; i++) {
-    // En reposo son filetes de papel: cinco líneas de colores subiendo era un
-    // arcoíris compitiendo con las notas, que es lo único que hay que leer.
-    ctx.strokeStyle = s.pressed[i] ? rgba(LANE_COLORS[i], 0.95) : 'rgba(233,230,222,0.10)';
-    ctx.lineWidth = s.pressed[i] ? 3 : 1;
+    // En reposo, filetes del estilo. Cinco líneas de colores subiendo era un
+    // arcoíris compitiendo con las notas, que es lo único que hay que leer;
+    // el estilo Neón las mantiene porque así era antes.
+    ctx.strokeStyle = s.pressed[i] ? rgba(LANE_COLORS[i], 0.95)
+      : th.line === 'lane' ? rgba(LANE_COLORS[i], 0.4) : th.line;
+    ctx.lineWidth = s.pressed[i] ? 3 : th.line === 'lane' ? 1.5 : 1;
     ctx.beginPath();
     ctx.moveTo((gw - gtop) / 2 + (gtop * (i + 0.5)) / n, 0);
     ctx.lineTo((gw * (i + 0.5)) / n, gh);
@@ -179,22 +241,27 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
   }
 
   // Neblina arriba: da profundidad y esconde la aparición de las notas
-  const fog = ctx.createLinearGradient(0, 0, 0, gh * 0.32);
-  fog.addColorStop(0, 'rgba(6,6,7,0.97)');
-  fog.addColorStop(1, 'rgba(6,6,7,0)');
-  ctx.fillStyle = fog;
+  const fogK = `${gh}|${th.id}`;
+  if (!fogCache || fogCache.k !== fogK) {
+    const g = ctx.createLinearGradient(0, 0, 0, gh * 0.32);
+    g.addColorStop(0, rgba(th.top, 0.97));
+    g.addColorStop(1, rgba(th.top, 0));
+    fogCache = { k: fogK, g };
+  }
+  ctx.fillStyle = fogCache.g;
   ctx.fillRect(0, 0, gw, gh * 0.32);
   ctx.restore();
 
   // ---------- Bordes con neón (laten con el ritmo) ----------
   ctx.save();
-  // Un halo difuso en reposo es decoración y cuesta cuadros. El brillo queda
-  // para el modo Leyenda, donde sí avisa de un cambio de estado.
+  // En el estilo de la casa un halo difuso en reposo es decoración y cuesta
+  // cuadros, así que solo aparece en modo Leyenda. Los estilos con brillo lo
+  // llevan siempre, que es justamente lo que los hace distintos.
   ctx.shadowColor = edge;
-  ctx.shadowBlur = LOW || !s.boosting ? 0 : 16 + pulse * 18;
-  ctx.globalAlpha = 0.55 + pulse * 0.45;
+  ctx.shadowBlur = LOW || !(th.glow || s.boosting) ? 0 : 14 + pulse * 20 + (baseMult >= 4 ? 8 : 0);
+  ctx.globalAlpha = th.glow ? 1 : 0.55 + pulse * 0.45;
   ctx.strokeStyle = edge;
-  ctx.lineWidth = 3 + pulse * 2;
+  ctx.lineWidth = (th.glow ? 4 : 3) + pulse * 2;
   ctx.beginPath();
   ctx.moveTo((gw - gtop) / 2, 0); ctx.lineTo(0, gh);
   ctx.moveTo((gw + gtop) / 2, 0); ctx.lineTo(gw, gh);
@@ -226,11 +293,11 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const w = W(ghit);
     const x0 = (gw - w) / 2;
     ctx.save();
-    // Barra maciza de papel: el filete grueso que separa las cosas en un afiche.
-    ctx.fillStyle = s.boosting ? '#ffc53d' : '#e9e6de';
+    // Barra maciza: el filete grueso que separa las cosas en un afiche.
+    ctx.fillStyle = s.boosting ? '#ffc53d' : th.edge;
     ctx.globalAlpha = 0.72 + pulse * 0.28;
-    ctx.shadowColor = s.boosting ? '#ffc53d' : 'transparent';
-    ctx.shadowBlur = LOW || !s.boosting ? 0 : 14;
+    ctx.shadowColor = s.boosting ? '#ffc53d' : edge;
+    ctx.shadowBlur = LOW || !(th.glow || s.boosting) ? 0 : 12 + pulse * 14;
     ctx.fillRect(x0, ghit - 3, w, 6);
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -273,14 +340,29 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     // Sombra plana debajo: el receptor está apoyado, no flotando en una nube.
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.beginPath(); ctx.ellipse(x, ghit + sh * 0.26, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
-    // Apagado: hueco de tinta. Apretado: tinta plana del color del carril.
-    ctx.fillStyle = on ? col : '#0e0e10';
-    ctx.shadowColor = missK > 0 ? '#ff5a5a' : col;
-    ctx.shadowBlur = LOW ? 0 : on ? 22 : missK * 22;
-    ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
+    if (th.gem === 'neon') {
+      const rg = ctx.createRadialGradient(x, y - sh * 0.15, 2, x, y, size / 2);
+      if (on) { rg.addColorStop(0, '#FFFFFF'); rg.addColorStop(0.35, shade(col, 1.4)); rg.addColorStop(1, col); }
+      else { rg.addColorStop(0, '#2A2448'); rg.addColorStop(1, '#0A0916'); }
+      ctx.fillStyle = rg;
+      ctx.shadowColor = missK > 0 ? '#FF2D4D' : col;
+      ctx.shadowBlur = LOW ? 0 : on ? 34 : 10 + missK * 20;
+      ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = on ? 0.9 : 0.35;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.ellipse(x - size * 0.12, y - sh * 0.22, size * 0.16, sh * 0.1, -0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      // Apagado: hueco de tinta. Apretado: tinta plana del color del carril.
+      ctx.fillStyle = on ? col : '#0e0e10';
+      ctx.shadowColor = missK > 0 ? '#ff5a5a' : col;
+      ctx.shadowBlur = LOW ? 0 : on ? 22 : missK * 22;
+      ctx.beginPath(); ctx.ellipse(x, y, size / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
     ctx.lineWidth = size * 0.1;
-    ctx.strokeStyle = missK > 0 ? '#ff5a5a' : on ? '#e9e6de' : col;
+    ctx.strokeStyle = missK > 0 ? '#ff5a5a' : on && th.gem !== 'neon' ? '#e9e6de' : col;
     ctx.globalAlpha = on || missK > 0 ? 1 : 0.8;
     ctx.beginPath(); ctx.ellipse(x, y, size / 2 - size * 0.05, sh / 2 - size * 0.05, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
@@ -409,6 +491,39 @@ function drawGem(ctx: CanvasRenderingContext2D, nt: LiveNote, s: RenderState, n:
     drawPullOff(ctx, x, y, w, h, base, alpha);
     return;
   }
+  const thg = THEMES[s.theme] ?? THEMES.estadio;
+  if (thg.gem === 'neon') {
+    // Perla con brillo: el estilo anterior del juego, tal cual era.
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = shade(col, 0.4);
+    ctx.beginPath(); ctx.ellipse(x, y + h * 0.3, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+    const rg = ctx.createRadialGradient(x, y - h * 0.2, 1, x, y, w / 2);
+    rg.addColorStop(0, shade(col, 1.55));
+    rg.addColorStop(0.55, col);
+    rg.addColorStop(1, shade(col, 0.5));
+    ctx.fillStyle = rg;
+    ctx.shadowColor = col;
+    ctx.shadowBlur = LOW ? 0 : 12;
+    ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(1.5, h * 0.08);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.stroke();
+    if (nt.hopo || tech === 'hopo') {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.ellipse(x, y, w * 0.2, h * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (tech === 'mute') {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(x - w * 0.22, y - h * 0.06, w * 0.44, Math.max(1, h * 0.09));
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.ellipse(x, y - h * 0.18, w * 0.26, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.globalAlpha = alpha;
   /*

@@ -3,13 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { levelProgress, useAuth } from '@/lib/auth/AuthProvider';
+import { Cover } from '@/components/Cover';
+import { useCharts } from '@/lib/data/hooks';
+import type { Chart, DifficultyId } from '@/lib/chart/types';
 import { submitScoreCloud } from '@/lib/data/cloud';
-import { difficultyInfo } from '@/lib/chart/types';
+import { DIFFICULTIES, difficultyInfo } from '@/lib/chart/types';
 import { getLastResult, getSettings, saveSettings, type GameResult } from '@/lib/data/store';
 
 export default function Results() {
   const [r, setR] = useState<GameResult | null | undefined>(undefined);
   const [k, setK] = useState(0);
+  const charts = useCharts();
 
   const { configured, loading, user, profile, refreshProfile } = useAuth();
   const [cloud, setCloud] = useState<{ state: 'idle' | 'sending' | 'done' | 'error'; xp?: number; serverScore?: number }>({ state: 'idle' });
@@ -151,7 +155,42 @@ export default function Results() {
           </div>
         )}
       </aside>
+
+      <Siguientes charts={charts} actual={r.chartId} diff={r.diff} />
     </main>
+  );
+}
+
+/**
+ * Terminar una canción y tener que volver al catálogo para elegir otra corta
+ * las ganas. Estas van directo a jugar, en la misma dificultad si existe.
+ */
+function Siguientes({ charts, actual, diff }: { charts: Chart[]; actual: string; diff: DifficultyId }) {
+  const otras = charts.filter((c) => c.id !== actual).slice(0, 6);
+  if (!otras.length) return null;
+  const dificultadDe = (c: Chart): DifficultyId =>
+    c.difficulties[diff] ? diff : (DIFFICULTIES.map((d) => d.id).find((d) => c.difficulties[d]) ?? 'expert');
+
+  return (
+    <section style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+      <div className="row" style={{ alignItems: 'baseline', marginBottom: 12 }}>
+        <h2 className="grow" style={{ fontSize: 24 }}>Sigue con otra</h2>
+        <Link href="/canciones" className="mono small">VER TODAS →</Link>
+      </div>
+      <hr className="bar" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(176px, 1fr))', gap: 2, marginTop: 2 }}>
+        {otras.map((c) => (
+          <Link key={c.id} href={`/jugar/${c.id}?d=${dificultadDe(c)}`} className="card" style={{ border: 0, outline: '1px solid var(--line)', outlineOffset: -1 }}>
+            <Cover chart={c} height={104} />
+            <div className="col" style={{ padding: '9px 11px 11px', gap: 2 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.title}</span>
+              <span className="small muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.artist}</span>
+              <span className="mono" style={{ marginTop: 4, fontSize: 11, color: 'var(--spot)' }}>▶ {difficultyInfo(dificultadDe(c)).name.toUpperCase()}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

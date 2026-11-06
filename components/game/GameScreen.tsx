@@ -109,6 +109,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bgRef = useRef<HTMLCanvasElement>(null);
   const backdropRef = useRef(new Backdrop());
+  /** La miniatura de la canción se imprime enorme detrás del escenario. */
+  const coverRef = useRef<HTMLImageElement | null>(null);
   const micRef = useRef<MicAnalyser | null>(null);
   const [mic, setMic] = useState<'off' | 'on' | 'asking' | 'denied'>('off');
   const laneE = useRef<number[]>(new Array(6).fill(0));
@@ -130,6 +132,19 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const me = useMe();
   const [board, setBoard] = useState<ChartRankRow[] | null>(null);
   useEffect(() => { fetchChartLeaderboard(chart.id, diff, 'week', 50).then(setBoard).catch(() => undefined); }, [chart.id, diff]);
+
+  // La miniatura del video, para imprimirla detrás del escenario. Si no carga,
+  // el fondo se dibuja igual sin ella.
+  useEffect(() => {
+    coverRef.current = null;
+    const vid = chart.source.kind === 'youtube' ? chart.source.videoId : '';
+    if (!vid) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => { coverRef.current = img; };
+    img.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+    return () => { img.onload = null; coverRef.current = null; };
+  }, [chart.source]);
   const queue = useMemo(() => getAllCharts().filter((c) => c.id !== chart.id).slice(0, 3), [chart.id]);
 
   const setPhase = useCallback((p: Phase) => { phaseRef.current = p; setPhaseState(p); }, []);
@@ -376,7 +391,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     if (!canvas) return;
     const g0 = geoRef.current;
     // En modo liviano se dibuja a menos resolución (se nota poco y alivia mucho al teléfono)
-    const dpr = Math.min(lowFxRef.current ? 1.5 : 2, window.devicePixelRatio || 1);
+    // Menos píxeles por cuadro en modo liviano: a 1,25 la autopista se ve igual
+    // de nítida en un teléfono y se dibuja un tercio más rápido que a 1,5.
+    const dpr = Math.min(lowFxRef.current ? 1.25 : 2, window.devicePixelRatio || 1);
     canvas.width = Math.round(g0.w * dpr);
     canvas.height = Math.round(g0.h * dpr);
     const ctx = canvas.getContext('2d')!;
@@ -485,7 +502,9 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       if (bctx && !lowFxRef.current) {
         backdropRef.current.draw(bctx, {
           t, bpm: chart.bpm, laneEnergy: le, lanes, heat: s.boosting ? 1 : Math.min(1, s.combo / 40),
-          boosting: s.boosting, mult: s.multiplier, spectrum: micRef.current?.spectrum() ?? null, playing: p === 'playing' || p === 'countdown'
+          boosting: s.boosting, mult: s.multiplier, spectrum: micRef.current?.spectrum() ?? null,
+          playing: p === 'playing' || p === 'countdown',
+          cover: coverRef.current, theme: settings.theme
         });
       }
       if (ms - lastHud > (lowFxRef.current ? 120 : 80)) {
@@ -705,13 +724,78 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       <span className="disp" style={{ width: 30, height: 30, borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: rankCol, border: `2px solid ${rankCol}` }}>{hud.rank}</span>
     </div>
   );
+  /*
+   * Teclas del teléfono.
+   *
+   * Antes cada carril era un botón con setPointerCapture: el dedo quedaba
+   * amarrado al primer botón que tocaba, así que deslizar de un carril a otro
+   * —que es la mitad de lo que uno hace jugando— no registraba nada. Y entre
+   * botón y botón había 6 px muertos donde apretar no hacía nada.
+   *
+   * Ahora la tira entera es una sola zona: el carril sale de dónde está el dedo,
+   * deslizar cambia de carril y cada dedo se sigue por separado para los
+   * acordes. El estado apretado se pinta tocando el DOM directo, sin pasar por
+   * React: un re-render por tecla en medio de una canción se siente.
+   */
+  const padsRef = useRef<HTMLDivElement>(null);
+  const padEls = useRef<(HTMLDivElement | null)[]>([]);
+  const dedos = useRef(new Map<number, number>());
+
+  const laneFromX = (clientX: number) => {
+    const el = padsRef.current;
+    if (!el) return 0;
+    const r = el.getBoundingClientRect();
+    const i = Math.floor(((clientX - r.left) / r.width) * lanes);
+    return Math.max(0, Math.min(lanes - 1, i));
+  };
+  const pintaPad = (lane: number, on: boolean) => {
+    const el = padEls.current[lane];
+    if (el) el.dataset.on = on ? '1' : '';
+  };
+  const padDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const l = laneFromX(e.clientX);
+    dedos.current.set(e.pointerId, l);
+    pintaPad(l, true);
+    if (phaseRef.current === 'intro') start(); else hitLane(l, true);
+  };
+  const padMove = (e: React.PointerEvent) => {
+    const prev = dedos.current.get(e.pointerId);
+    if (prev === undefined) return;
+    const l = laneFromX(e.clientX);
+    if (l === prev) return;
+    hitLane(prev, false); pintaPad(prev, false);
+    dedos.current.set(e.pointerId, l);
+    pintaPad(l, true); hitLane(l, true);
+  };
+  const padUp = (e: React.PointerEvent) => {
+    const prev = dedos.current.get(e.pointerId);
+    if (prev === undefined) return;
+    dedos.current.delete(e.pointerId);
+    pintaPad(prev, false);
+    hitLane(prev, false);
+  };
+
   const mPads = (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${lanes}, 1fr)`, gap: 6, padding: '6px 8px calc(8px + env(safe-area-inset-bottom))', height: lay.landscape ? 72 : 92, flexShrink: 0 }}>
+    <div
+      ref={padsRef}
+      role="group"
+      aria-label="Carriles"
+      onPointerDown={padDown}
+      onPointerMove={padMove}
+      onPointerUp={padUp}
+      onPointerCancel={padUp}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        display: 'grid', gridTemplateColumns: `repeat(${lanes}, 1fr)`, gap: 0,
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        height: (lay.landscape ? 86 : 116) , flexShrink: 0,
+        touchAction: 'none', borderTop: '1px solid var(--line-2)', background: 'var(--ink)'
+      }}
+    >
       {Array.from({ length: lanes }).map((_, i) => (
-        <button key={i} type="button" aria-label={`Carril ${i + 1}`} className="pad"
-          onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); if (phaseRef.current === 'intro') start(); else hitLane(i, true); }}
-          onPointerUp={() => hitLane(i, false)} onPointerCancel={() => hitLane(i, false)} onContextMenu={(e) => e.preventDefault()}
-          style={{ touchAction: 'none', borderRadius: 0, border: `2px solid ${LANE_COLORS[i]}`, background: `${LANE_COLORS[i]}22`, cursor: 'pointer' }} />
+        <div key={i} ref={(el) => { padEls.current[i] = el; }} className="pad" aria-hidden="true"
+          style={{ ['--lane' as string]: LANE_COLORS[i] }} />
       ))}
     </div>
   );
