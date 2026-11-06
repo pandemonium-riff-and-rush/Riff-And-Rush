@@ -98,19 +98,23 @@ rosa de 2 px y 2 px de separación, cifras tabulares en toda la mono.
 
 La autopista es del mismo mundo: fondo de tinta, carriles con filetes de papel al
 10 %, trastes de papel, línea de golpe como barra maciza de papel de 6 px. Las
-notas son tinta plana del color de su carril con contorno negro y un borde de papel
-arriba que da el volumen: ni degradado radial ni halo. El resplandor quedó
-reservado para el modo Leyenda, donde avisa de un cambio de estado real; sacarlo
-del resto también bajó el costo por cuadro en teléfonos.
+notas se dibujan de dos maneras según el estilo: con brillo (degradado y halo, que
+es la que se usa por defecto porque es la que se lee más rápido a velocidad) o de
+tinta plana con contorno, en Contraste y Tablas. El resplandor de los bordes y de
+la línea de golpe sí quedó reservado para el modo Leyenda y para los estilos que lo
+declaran, porque cuesta cuadros en teléfonos.
 
 ### El fondo del escenario
 
-Un muro de afiches pegados unos sobre otros, dibujado una sola vez en un lienzo
-aparte y copiado en cada cuadro. Encima: la miniatura de la canción, enorme,
-tramada y muy oscura, y una sola luz de escenario que respira con el pulso. Antes
-había seis láseres, barras de ecualizador con degradado y partículas de colores;
-con la paleta nueva todo eso se dibujaba en blanco apagado y quedaba una niebla
-turbia que no decía nada.
+Todo lo que hay detrás de la autopista responde a la música, porque es lo único
+que ese fondo tiene que hacer: la miniatura de la canción enorme y oscura, torres
+de parlantes que son el espectro dibujado en bloques macizos, seis focos que
+barren con su lámpara visible, la luz del escenario, las ondas del bombo, el
+destello del compás y papeles volando según la racha. Todo toma el color del
+multiplicador y se va a dorado en modo Leyenda.
+
+Se probó un muro de afiches pegados como fondo y se descartó: daba profundidad
+pero estaba quieto, y un fondo quieto en un juego de ritmo no transmite nada.
 
 ### Estilos de autopista
 
@@ -120,7 +124,7 @@ así que no se pueden desincronizar.
 
 | Estilo | Qué es |
 |---|---|
-| **Afiche** (de la casa) | Tinta y papel. Notas de tinta plana, sin halos. |
+| **Escenario** (de la casa) | Autopista oscura y limpia, notas con brillo. |
 | **Neón** | El estilo anterior del juego: morado, bordes con brillo, notas con degradado. |
 | **Mástil** | La autopista es el diapasón: madera con veta, trastes de alambre, puntos de posición y una cuerda por carril. |
 | **Contraste** | Negro puro y blanco. Lo más legible a toda velocidad. |

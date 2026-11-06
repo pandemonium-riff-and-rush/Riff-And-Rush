@@ -1,18 +1,16 @@
 /**
- * Fondo de la pantalla de juego: el muro de afiches detrás del escenario.
+ * Fondo de la pantalla de juego: el lugar donde se está tocando.
  *
- * Antes era un visualizador de discoteca (seis láseres, barras de ecualizador con
- * degradado, partículas de colores). Con la paleta nueva todo eso se dibujaba en
- * blanco apagado y quedaba una niebla turbia que no decía nada.
+ * Todo acá responde a la música, que es lo único que este fondo tiene que hacer:
+ *  1. La miniatura de la canción, enorme y oscura, para saber qué suena.
+ *  2. Torres de parlantes: el espectro como bloques macizos que suben del suelo.
+ *  3. Seis focos que barren, con su lámpara visible, abriendo con el pulso.
+ *  4. La luz del escenario, las ondas del bombo y el destello del compás.
+ *  5. Papeles volando, tantos como racha lleve el jugador.
  *
- * Ahora son tres capas, todas del mismo mundo que la web:
- *  1. El muro: afiches pegados unos sobre otros, dibujado UNA vez y reusado.
- *  2. La luz del escenario: un solo foco que respira con el pulso, no seis.
- *  3. El medidor: una tira impresa abajo que reacciona al chart o al micrófono.
- *
- * Reacciona a la música de dos formas: por defecto con las notas del chart (están
- * puestas sobre la música, así que siguen su ritmo), y opcionalmente con el sonido
- * real del micrófono (el audio de YouTube no se puede leer directo).
+ * Reacciona de dos formas: por defecto con las notas del chart (están puestas
+ * sobre la música, así que siguen su ritmo), y opcionalmente con el sonido real
+ * del micrófono, porque el audio de YouTube no se puede leer directo.
  */
 
 export const BW = 1440;
@@ -53,17 +51,6 @@ function rgba(hex: string, a: number) {
   return `rgba(${v >> 16},${(v >> 8) & 255},${v & 255},${a})`;
 }
 
-/** Ruido reproducible: el muro tiene que verse igual en cada partida. */
-function rng(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 export class Backdrop {
   private bars = new Float32Array(BARS);
   private peaks = new Float32Array(BARS);
@@ -78,7 +65,7 @@ export class Backdrop {
     for (let i = 0; i < 26; i++) this.motes.push(this.newMote(true));
   }
 
-  /** Un trozo de afiche arrancado del muro. */
+  /** Un papelillo que sube flotando. */
   private newMote(cualquiera = false): Mote {
     return {
       x: Math.random() * BW,
@@ -91,51 +78,6 @@ export class Backdrop {
       spin: (Math.random() - 0.5) * 2.4
     };
   }
-  /** El muro se dibuja una vez y después solo se copia. */
-  private wall: HTMLCanvasElement | null = null;
-  private wallTheme = '';
-
-  /** Afiches pegados: rectángulos de tinta girados un grado, con una tira de cinta. */
-  private buildWall(neon: boolean) {
-    const c = document.createElement('canvas');
-    c.width = BW; c.height = BH;
-    const x = c.getContext('2d');
-    if (!x) return c;
-    const r = rng(20261106);
-    x.fillStyle = neon ? '#0a0818' : '#0a0a0b';
-    x.fillRect(0, 0, BW, BH);
-    for (let i = 0; i < 46; i++) {
-      const w = 130 + r() * 190;
-      const h = w * (1.2 + r() * 0.5);
-      const px = r() * (BW + 200) - 100;
-      const py = r() * (BH + 200) - 100;
-      const rot = (r() - 0.5) * 0.09;
-      x.save();
-      x.translate(px + w / 2, py + h / 2);
-      x.rotate(rot);
-      // El afiche: un papel muy apagado, casi tinta sobre tinta
-      const tono = 0.016 + r() * 0.03;
-      const rosa = r() < 0.17;
-      x.fillStyle = rosa ? `rgba(255,61,139,${tono * 1.5})`
-        : neon ? `rgba(168,130,255,${tono})` : `rgba(233,230,222,${tono})`;
-      x.fillRect(-w / 2, -h / 2, w, h);
-      // Una barra de título y unas líneas de texto, apenas insinuadas
-      x.fillStyle = rosa ? `rgba(255,61,139,${tono * 2.6})`
-        : neon ? `rgba(168,130,255,${tono * 1.9})` : `rgba(233,230,222,${tono * 1.9})`;
-      x.fillRect(-w / 2 + 8, -h / 2 + 10, w - 16, h * 0.16);
-      for (let k = 0; k < 3; k++) {
-        x.fillRect(-w / 2 + 8, -h / 2 + h * 0.26 + k * 12, (w - 16) * (0.5 + r() * 0.45), 3);
-      }
-      // Cinta en una esquina
-      if (r() < 0.45) {
-        x.fillStyle = `rgba(233,230,222,${tono * 2.4})`;
-        x.fillRect(-w / 2 - 6, -h / 2 - 4, 34, 11);
-      }
-      x.restore();
-    }
-    return c;
-  }
-
   draw(ctx: CanvasRenderingContext2D, s: BackdropInput) {
     const now = performance.now() / 1000;
     const dt = this.last ? Math.min(0.05, now - this.last) : 0.016;
@@ -185,7 +127,7 @@ export class Backdrop {
     ctx.fillRect(0, 0, BW, BH);
     if (s.cover) {
       ctx.save();
-      ctx.globalAlpha = 0.26 + level * 0.22 + this.flash * 0.1;
+      ctx.globalAlpha = 0.34 + level * 0.24 + this.flash * 0.12;
       ctx.filter = 'grayscale(1) contrast(1.5) brightness(0.45)';
       ctx.drawImage(s.cover, -60, -110, BW + 120, (BW + 120) * 0.5625);
       ctx.filter = 'none';
@@ -198,16 +140,7 @@ export class Backdrop {
       ctx.restore();
     }
 
-    // ---------- 2. El muro de afiches, iluminado por la música ----------
-    if (!this.wall || this.wallTheme !== (neon ? 'neon' : 'papel')) {
-      this.wall = this.buildWall(neon);
-      this.wallTheme = neon ? 'neon' : 'papel';
-    }
-    ctx.globalAlpha = 0.55 + fuerza * 0.45;
-    ctx.drawImage(this.wall, 0, 0);
-    ctx.globalAlpha = 1;
-
-    // ---------- 3. Las torres de parlantes: el espectro, impreso ----------
+    // ---------- 2. Las torres de parlantes: el espectro, en bloques ----------
     // Bloques macizos que suben desde el suelo detrás del escenario. Es la
     // señal más directa de "acá está sonando algo".
     const torres = 22;
@@ -231,7 +164,7 @@ export class Backdrop {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // ---------- 4. Los focos que barren ----------
+    // ---------- 3. Los focos que barren ----------
     const focos = 6;
     for (let i = 0; i < focos; i++) {
       const desdeIzq = i < focos / 2;
@@ -259,7 +192,7 @@ export class Backdrop {
       ctx.beginPath(); ctx.arc(ox, 8, 7 + pulse * 5, 0, Math.PI * 2); ctx.fill();
     }
 
-    // ---------- 5. La luz del escenario ----------
+    // ---------- 4. La luz del escenario ----------
     const r0 = 460 + level * 300 + pulse * 120;
     const halo = ctx.createRadialGradient(720, 700, 30, 720, 700, r0);
     halo.addColorStop(0, hexA(main, 0.16 + level * 0.24 + s.heat * 0.14));
@@ -268,7 +201,7 @@ export class Backdrop {
     ctx.fillStyle = halo;
     ctx.fillRect(0, 0, BW, BH);
 
-    // ---------- 6. Ondas del bombo ----------
+    // ---------- 5. Ondas del bombo ----------
     for (const w of this.waves) {
       w.life += dt;
       const k = w.life / (w.strong ? 1 : 0.6);
@@ -281,8 +214,8 @@ export class Backdrop {
     }
     this.waves = this.waves.filter((w) => w.life < 1.1);
 
-    // ---------- 7. Papeles volando ----------
-    // Trozos de afiche arrancados del muro: suben con la racha.
+    // ---------- 6. Papeles volando ----------
+    // Papelillos del show: suben con la racha.
     const quiere = 26 + Math.floor(s.heat * 90);
     while (this.motes.length < quiere) this.motes.push(this.newMote());
     for (const m of this.motes) {
@@ -301,7 +234,7 @@ export class Backdrop {
     if (this.motes.length > quiere + 20) this.motes.length = quiere + 20;
     ctx.restore();
 
-    // ---------- 8. Golpe de compás: el muro entero recibe luz ----------
+    // ---------- 7. Golpe de compás: todo el lugar recibe luz ----------
     if (this.flash > 0.01) {
       ctx.fillStyle = hexA(main, this.flash * (0.05 + s.heat * 0.09));
       ctx.fillRect(0, 0, BW, BH);

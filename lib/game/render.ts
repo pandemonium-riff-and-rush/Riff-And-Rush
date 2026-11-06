@@ -124,9 +124,9 @@ export interface HwTheme {
 
 export const HIGHWAY_THEMES: HwTheme[] = [
   {
-    id: 'estadio', name: 'Afiche', desc: 'Tinta y papel. El color solo donde informa.',
+    id: 'estadio', name: 'Escenario', desc: 'Autopista oscura y limpia, notas con brillo. El de la casa.',
     top: '#060607', bottom: '#15151a', edge: '#e9e6de', line: 'rgba(233,230,222,0.10)',
-    fret: ['rgba(233,230,222,0.40)', 'rgba(233,230,222,0.11)'], glow: false, gem: 'print'
+    fret: ['rgba(233,230,222,0.40)', 'rgba(233,230,222,0.11)'], glow: false, gem: 'neon'
   },
   {
     id: 'neon', name: 'Neón', desc: 'El estilo anterior del juego: morado, halos y notas con brillo.',
@@ -134,7 +134,7 @@ export const HIGHWAY_THEMES: HwTheme[] = [
     fret: ['rgba(210,200,255,0.42)', 'rgba(200,190,255,0.13)'], glow: true, gem: 'neon'
   },
   {
-    id: 'contraste', name: 'Contraste', desc: 'Negro puro y blanco. Lo más legible a toda velocidad.',
+    id: 'contraste', name: 'Contraste', desc: 'Negro puro, blanco y notas de tinta plana. Lo más legible a toda velocidad.',
     top: '#000000', bottom: '#000000', edge: '#ffffff', line: 'rgba(255,255,255,0.18)',
     fret: ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.16)'], glow: false, gem: 'print'
   },
@@ -144,7 +144,7 @@ export const HIGHWAY_THEMES: HwTheme[] = [
     fret: ['#d8cdb8', 'rgba(216,205,184,0.22)'], glow: true, gem: 'neon', board: 'wood'
   },
   {
-    id: 'madera', name: 'Tablas', desc: 'Tablas de escenario, cálido y sin brillos.',
+    id: 'madera', name: 'Tablas', desc: 'Tablas de escenario, cálido y con notas de tinta plana.',
     top: '#080604', bottom: '#241a12', edge: '#e0c9a8', line: 'rgba(224,201,168,0.12)',
     fret: ['rgba(224,201,168,0.38)', 'rgba(224,201,168,0.11)'], glow: false, gem: 'print'
   },
