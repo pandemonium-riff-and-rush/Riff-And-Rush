@@ -94,6 +94,18 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
   const [recovered, setRecovered] = useState(false);
 
   const phaseRef = useRef<Phase>(phase);
+  /**
+   * Identificador de cada aviso. Antes se usaba el tiempo del cuadro, así que un
+   * juicio y un aviso nacidos en el mismo cuadro salían con la misma llave y React
+   * los confundía (de ahí que el mensaje se viera repetido). Un contador no choca.
+   */
+  const seqRef = useRef(0);
+  /**
+   * Lo que ya se avisó. Vive en un ref y no en variables del bucle porque el bucle
+   * se vuelve a montar al cambiar el tamaño, los efectos o el estilo; si esto se
+   * reiniciara, la racha de 200 se anunciaría de nuevo en el cuadro siguiente.
+   */
+  const avisado = useRef({ combo: 0, hito: 0, boost: false, energia: false });
   const clockRef = useRef<GameClock | null>(null);
   const scorerRef = useRef<Scorer>(null as unknown as Scorer);
   if (!scorerRef.current) scorerRef.current = makeScorer();
@@ -406,9 +418,6 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
     const bctx = bg?.getContext('2d') ?? null;
     bctx?.setTransform(bdpr, 0, 0, bdpr, 0, 0);
     let lastFrame = performance.now();
-    let prevCombo = 0;
-    let prevBoost = false;
-    let energyHinted = false;
     // Automático: si el juego va lento (menos de ~45 cuadros por segundo sostenido), pasa a liviano
     let slowFrames = 0;
     const beatLen = 60 / chart.bpm;
@@ -424,7 +433,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         s = scorerRef.current;
         eventsSeen.current = 0;
         clockRef.current?.resume(practice.from - 2);
-        setBanner({ text: `Otra vez · vuelta ${loops.current + 1}`, color: '#ff3d8b', key: ms });
+        avisado.current = { combo: 0, hito: 0, boost: false, energia: false };
+        setBanner({ text: `Otra vez · vuelta ${loops.current + 1}`, color: '#ff3d8b', key: ++seqRef.current });
       }
       if (p === 'playing' || p === 'countdown') {
         if (auto) {
@@ -458,16 +468,30 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         }
         const ev = s.events[s.events.length - 1];
         const sub = ev.judgment === 'good' ? (ev.offsetMs < 0 ? 'temprano' : 'tarde') : undefined;
-        setJudge({ text: JUDGE_TEXT[ev.judgment], sub, color: JUDGE_COLOR[ev.judgment], key: ms });
+        setJudge({ text: JUDGE_TEXT[ev.judgment], sub, color: JUDGE_COLOR[ev.judgment], key: ++seqRef.current });
       }
-      // Avisos grandes: rachas, energía y modo leyenda
-      if (s.combo >= 50 && Math.floor(s.combo / 50) > Math.floor(prevCombo / 50)) setBanner({ text: `¡${Math.floor(s.combo / 50) * 50} seguidas!`, color: '#ffc53d', key: ms });
-      if (prevCombo >= 20 && s.combo === 0) setBanner({ text: 'Racha perdida', color: '#FF4D6D', key: ms });
-      prevCombo = s.combo;
-      if (s.boosting && !prevBoost) setBanner({ text: '¡Modo leyenda!', color: '#ffc53d', key: ms });
-      prevBoost = s.boosting;
-      if (s.energy >= 0.5 && !s.boosting && !energyHinted) { energyHinted = true; setBanner({ text: 'Energía lista · Espacio', color: '#ff3d8b', key: ms }); }
-      if (s.energy < 0.5) energyHinted = false;
+      // Avisos grandes: rachas, energía y modo leyenda. Cada uno sale una sola vez
+      // por hito: lo que ya se anunció queda guardado en `avisado`.
+      const av = avisado.current;
+      const hito = Math.floor(s.combo / 50) * 50;
+      if (hito >= 50 && hito > av.hito) {
+        av.hito = hito;
+        setBanner({ text: `¡${hito} seguidas!`, color: '#ffc53d', key: ++seqRef.current });
+      }
+      if (s.combo === 0 && av.combo >= 20) setBanner({ text: 'Racha perdida', color: '#FF4D6D', key: ++seqRef.current });
+      if (s.combo === 0) av.hito = 0;
+      av.combo = s.combo;
+      if (s.boosting !== av.boost) {
+        av.boost = s.boosting;
+        if (s.boosting) setBanner({ text: '¡Modo leyenda!', color: '#ffc53d', key: ++seqRef.current });
+      }
+      // Histéresis: la energía baila alrededor de la mitad, así que el aviso se
+      // vuelve a armar solo cuando baja bastante, no al primer temblor.
+      if (s.energy >= 0.5 && !s.boosting && !av.energia) {
+        av.energia = true;
+        setBanner({ text: 'Energía lista · Espacio', color: '#ff3d8b', key: ++seqRef.current });
+      }
+      if (s.energy < 0.4) av.energia = false;
 
       drawHighway(ctx, {
         t, notes: s.notes, lanes, window: 3.6 / speedRef.current, bpm: chart.bpm, tempo: tmap,
@@ -601,10 +625,10 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           )}
           {banner && (phase === 'playing' || phase === 'countdown') && (
             // Arriba, en el fondo de la autopista (donde las notas aún son chicas) y con placa oscura: no tapa lo que viene
-            <div key={banner.key} className="disp banner-pop" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, padding: c ? '3px 12px' : '4px 18px', borderRadius: 0, background: 'rgba(11,11,12,0.82)', border: `1px solid ${banner.color}`, fontSize: c ? 18 : 30, lineHeight: c ? '22px' : '36px', color: banner.color, textShadow: '3px 3px 0 #000', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
+            <div key={`aviso-${banner.key}`} className="disp banner-pop" style={{ position: 'absolute', left: g.w / 2, top: c ? 8 : 18, padding: c ? '3px 12px' : '4px 18px', borderRadius: 0, background: 'rgba(11,11,12,0.82)', border: `1px solid ${banner.color}`, fontSize: c ? 18 : 30, lineHeight: c ? '22px' : '36px', color: banner.color, textShadow: '3px 3px 0 #000', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{banner.text}</div>
           )}
           {judge && (phase === 'playing' || phase === 'countdown') && (
-            <div key={judge.key} className="judge-pop" style={{ position: 'absolute', left: g.w / 2, top: g.hit - (c ? 72 : 100), textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+            <div key={`juicio-${judge.key}`} className="judge-pop" style={{ position: 'absolute', left: g.w / 2, top: g.hit - (c ? 72 : 100), textAlign: 'center', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
               <div className="disp" style={{ fontSize: c ? 24 : 34, lineHeight: c ? '26px' : '36px', color: judge.color, textShadow: `3px 3px 0 #000, 0 0 16px ${judge.color}` }}>{judge.text}</div>
               {judge.sub && <div className="cond" style={{ fontSize: 14, letterSpacing: '0.12em', color: '#c3bfb5', textShadow: '2px 2px 0 #000' }}>{judge.sub}</div>}
             </div>
