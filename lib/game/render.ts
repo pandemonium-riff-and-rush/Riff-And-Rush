@@ -118,6 +118,8 @@ export interface HwTheme {
   glow: boolean;
   /** Cómo se dibuja la nota: tinta plana o perla con brillo. */
   gem: 'print' | 'neon';
+  /** 'wood' convierte la autopista en un mástil: veta, trastes y puntos. */
+  board?: 'plain' | 'wood';
 }
 
 export const HIGHWAY_THEMES: HwTheme[] = [
@@ -137,7 +139,12 @@ export const HIGHWAY_THEMES: HwTheme[] = [
     fret: ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.16)'], glow: false, gem: 'print'
   },
   {
-    id: 'madera', name: 'Madera', desc: 'Tablas de escenario, cálido y sin brillos.',
+    id: 'mastil', name: 'Mástil', desc: 'La autopista es el diapasón: madera con veta, trastes de metal, puntos de posición y una cuerda por carril.',
+    top: '#120b06', bottom: '#4a2e18', edge: '#c9a36b', line: 'lane',
+    fret: ['#d8cdb8', 'rgba(216,205,184,0.22)'], glow: true, gem: 'neon', board: 'wood'
+  },
+  {
+    id: 'madera', name: 'Tablas', desc: 'Tablas de escenario, cálido y sin brillos.',
     top: '#080604', bottom: '#241a12', edge: '#e0c9a8', line: 'rgba(224,201,168,0.12)',
     fret: ['rgba(224,201,168,0.38)', 'rgba(224,201,168,0.11)'], glow: false, gem: 'print'
   },
@@ -212,8 +219,33 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
         g.addColorStop(1, rgba(col, 0));
         ctx.fillStyle = g;
       }
-    } else ctx.fillStyle = i % 2 ? 'rgba(233,230,222,0.022)' : 'rgba(0,0,0,0.14)';
+    } else if (th.board === 'wood') ctx.fillStyle = i % 2 ? 'rgba(255,225,185,0.03)' : 'rgba(0,0,0,0.12)';
+    else ctx.fillStyle = i % 2 ? 'rgba(233,230,222,0.022)' : 'rgba(0,0,0,0.14)';
     ctx.fill();
+  }
+
+  // Veta de la madera: hebras que corren a lo largo del mástil
+  if (th.board === 'wood') {
+    ctx.save();
+    // El diapasón es curvo: los bordes caen en sombra y el centro recibe luz
+    const curva = ctx.createLinearGradient(0, 0, gw, 0);
+    curva.addColorStop(0, 'rgba(0,0,0,0.55)');
+    curva.addColorStop(0.5, 'rgba(255,220,170,0.07)');
+    curva.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = curva;
+    ctx.fillRect(0, 0, gw, gh);
+    for (let k = 0; k < 26; k++) {
+      const f = (k + 0.5) / 26;
+      const xt = (gw - gtop) / 2 + gtop * f;
+      const xb = gw * f;
+      ctx.strokeStyle = k % 3 === 0 ? 'rgba(20,10,4,0.5)' : 'rgba(255,225,185,0.045)';
+      ctx.lineWidth = k % 3 === 0 ? 2.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(xt + Math.sin(k * 2.3) * 5, 0);
+      ctx.lineTo(xb + Math.sin(k * 1.7) * 14, gh);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Trastes (líneas de compás) que avanzan con la música
@@ -222,6 +254,33 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     const y = yOf((g.t - s.t) / s.window);
     const w = W(y);
     const strong = g.strong;
+    if (th.board === 'wood') {
+      /*
+       * En un mástil los trastes son frecuentes, así que cada tiempo es un
+       * traste de alambre: filo claro arriba y sombra abajo. El compás lleva
+       * uno más grueso, que es el que marca el ritmo.
+       */
+      const cerca = y / gh;
+      const h = Math.max(2, (strong ? 2.6 : 1.6) + cerca * (strong ? 6 : 3.4));
+      const x0 = (gw - w) / 2;
+      // Sombra bajo el alambre: es lo que lo despega de la madera
+      ctx.fillStyle = 'rgba(10,5,2,0.85)';
+      ctx.fillRect(x0, y + h * 0.3, w, Math.max(1.5, h * 0.9));
+      // Alambre: filo blanco arriba, cuerpo níquel, canto oscuro
+      ctx.fillStyle = strong ? '#fffdf7' : 'rgba(252,248,238,0.92)';
+      ctx.fillRect(x0, y - h / 2, w, Math.max(1, h * 0.42));
+      ctx.fillStyle = strong ? 'rgba(176,166,146,0.95)' : 'rgba(176,166,146,0.7)';
+      ctx.fillRect(x0, y - h / 2 + h * 0.42, w, h * 0.58);
+      // Puntos de posición: al centro cada dos compases
+      if (strong) {
+        const r = Math.max(4, cerca * 17);
+        ctx.fillStyle = 'rgba(246,241,229,0.8)';
+        ctx.beginPath(); ctx.ellipse(gw / 2, y - r * 2.1, r, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(10,5,2,0.28)';
+        ctx.beginPath(); ctx.ellipse(gw / 2, y - r * 2.1 + r * 0.14, r * 0.92, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      continue;
+    }
     ctx.fillStyle = strong ? th.fret[0] : th.fret[1];
     ctx.fillRect((gw - w) / 2, y - (strong ? 1.5 : 0.5), w, strong ? 3 : 1);
   }
@@ -231,14 +290,18 @@ export function drawHighway(ctx: CanvasRenderingContext2D, s: RenderState) {
     // En reposo, filetes del estilo. Cinco líneas de colores subiendo era un
     // arcoíris compitiendo con las notas, que es lo único que hay que leer;
     // el estilo Neón las mantiene porque así era antes.
-    ctx.strokeStyle = s.pressed[i] ? rgba(LANE_COLORS[i], 0.95)
-      : th.line === 'lane' ? rgba(LANE_COLORS[i], 0.4) : th.line;
-    ctx.lineWidth = s.pressed[i] ? 3 : th.line === 'lane' ? 1.5 : 1;
+    const cuerda = th.board === 'wood';
+    ctx.strokeStyle = s.pressed[i] ? rgba(LANE_COLORS[i], 1)
+      : th.line === 'lane' ? rgba(LANE_COLORS[i], cuerda ? 0.8 : 0.4) : th.line;
+    ctx.lineWidth = s.pressed[i] ? 3.5 : th.line === 'lane' ? (cuerda ? 2.5 : 1.5) : 1;
+    if (cuerda && !LOW) { ctx.shadowColor = LANE_COLORS[i]; ctx.shadowBlur = s.pressed[i] ? 14 : 7; }
+    else ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo((gw - gtop) / 2 + (gtop * (i + 0.5)) / n, 0);
     ctx.lineTo((gw * (i + 0.5)) / n, gh);
     ctx.stroke();
   }
+  ctx.shadowBlur = 0;
 
   // Neblina arriba: da profundidad y esconde la aparición de las notas
   const fogK = `${gh}|${th.id}`;

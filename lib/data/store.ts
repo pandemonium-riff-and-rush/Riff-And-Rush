@@ -141,7 +141,7 @@ export interface Settings {
   speed: number;
   latencyMs: number;
   bgOpacity: number;
-  theme: 'estadio' | 'neon' | 'contraste' | 'madera' | 'hielo';
+  theme: 'estadio' | 'neon' | 'mastil' | 'contraste' | 'madera' | 'hielo';
   metronomeClick: boolean;
   /** Las luces del fondo escuchan el sonido real por el micrófono. */
   micVisuals: boolean;

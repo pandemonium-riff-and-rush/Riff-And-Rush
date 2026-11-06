@@ -20,7 +20,7 @@ import { ExtraInputs } from '@/lib/game/input';
 import { MOD_INFO, modsLabel, type GameMods } from '@/lib/game/mods';
 import { tempoMap } from '@/lib/chart/tempo';
 import OffsetControl from '@/components/OffsetControl';
-import { HudCell, MultRing } from './Hud';
+import { EnergyMeter, HudCell, MultRing, RankBadge } from './Hud';
 
 type Phase = 'loading' | 'intro' | 'waiting' | 'countdown' | 'playing' | 'paused' | 'resuming' | 'error' | 'finished';
 
@@ -717,11 +717,10 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
       <span className="mono small" style={{ color: 'var(--ok)', minWidth: 52 }}>{(hud.acc * 100).toFixed(1).replace('.', ',')}%</span>
       <button type="button" aria-label={`Energía ${Math.round(hud.energy * 100)} %. Toca para activar el modo Leyenda`}
         onPointerDown={(e) => { e.preventDefault(); scorerRef.current.activateBoost(now()); }}
-        style={{ flex: 1, height: 26, position: 'relative', borderRadius: 0, overflow: 'hidden', cursor: 'pointer', background: 'rgba(11,11,12,0.92)', border: `1px solid ${energyReady ? 'var(--gold)' : 'var(--line-2)'}`, touchAction: 'none', padding: 0 }}>
-        <span className={energyReady ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${hud.energy * 100}%`, background: energyReady || hud.boosting ? '#ffc53d' : '#ff3d8b' }} />
-        <span className="cond" style={{ position: 'relative', fontSize: 11, letterSpacing: '0.12em', color: energyReady || hud.boosting ? '#fff' : 'var(--text-2)' }}>{hud.boosting ? 'LEYENDA' : energyReady ? 'TOCA: LEYENDA' : 'ENERGÍA'}</span>
+        style={{ flex: 1, height: 28, position: 'relative', border: 0, cursor: 'pointer', background: 'transparent', touchAction: 'none', padding: 0 }}>
+        <EnergyMeter value={hud.energy} boosting={hud.boosting} />
       </button>
-      <span className="disp" style={{ width: 30, height: 30, borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: rankCol, border: `2px solid ${rankCol}` }}>{hud.rank}</span>
+      <RankBadge rank={hud.rank} color={rankCol} size={30} />
     </div>
   );
   /*
@@ -894,9 +893,8 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
         </div>
 
         {/* Energía */}
-        <div aria-label={`Energía ${Math.round(hud.energy * 100)} %`} style={{ position: 'absolute', left: 1100, top: 470, width: 18, height: 300, borderRadius: 0, background: 'rgba(11,11,12,0.92)', border: `1px solid ${hud.energy >= 0.5 ? 'var(--gold)' : 'var(--line-2)'}`, overflow: 'hidden', boxShadow: undefined }}>
-          <div className={hud.energy >= 0.5 && !hud.boosting ? 'energy-ready' : undefined} style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: `${hud.energy * 100}%`, background: hud.energy >= 0.5 ? '#ffc53d' : '#ff3d8b', transition: 'height .12s' }} />
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: '50%', height: 2, background: 'rgba(255,255,255,0.5)' }} />
+        <div aria-label={`Energía ${Math.round(hud.energy * 100)} %`} style={{ position: 'absolute', left: 1098, top: 470, width: 22, height: 300 }}>
+          <EnergyMeter value={hud.energy} boosting={hud.boosting} vertical />
         </div>
         <div className="cond" style={{ position: 'absolute', left: 1122, top: 640, writingMode: 'vertical-rl', fontSize: 11, letterSpacing: '0.16em', color: hud.energy >= 0.5 ? 'var(--gold)' : 'var(--text-2)' }}>{hud.boosting ? 'LEYENDA' : 'ENERGÍA'}</div>
 
@@ -909,7 +907,7 @@ export default function GameScreen({ chart, diff, auto = false, mods = {} }: { c
           </HudCell>
           <HudCell label="Precisión"><span className="disp" style={{ fontSize: 30, color: 'var(--ok)' }}>{(hud.acc * 100).toFixed(1).replace('.', ',')}%</span></HudCell>
           <HudCell label="Rango" last>
-            <span className="disp" style={{ width: 52, height: 52, borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: rankCol, border: `3px solid ${rankCol}`, boxShadow: `0 0 16px ${rankCol}66` }}>{hud.rank}</span>
+            <RankBadge rank={hud.rank} color={rankCol} size={54} />
           </HudCell>
         </section>
 

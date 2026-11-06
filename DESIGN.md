@@ -122,12 +122,21 @@ así que no se pueden desincronizar.
 |---|---|
 | **Afiche** (de la casa) | Tinta y papel. Notas de tinta plana, sin halos. |
 | **Neón** | El estilo anterior del juego: morado, bordes con brillo, notas con degradado. |
+| **Mástil** | La autopista es el diapasón: madera con veta, trastes de alambre, puntos de posición y una cuerda por carril. |
 | **Contraste** | Negro puro y blanco. Lo más legible a toda velocidad. |
-| **Madera** | Tablas de escenario, cálido y sin brillos. |
+| **Tablas** | Tablas de escenario, cálido y sin brillos. |
 | **Hielo** | Azul frío, con brillo. |
 
-Cada estilo declara si lleva halos (`glow`) y cómo se dibuja la nota (`gem`). Un
-halo cuesta cuadros, así que es una propiedad del estilo y no un adorno suelto.
+Cada estilo declara si lleva halos (`glow`), cómo se dibuja la nota (`gem`) y si la
+tabla es lisa o un diapasón (`board`). Un halo cuesta cuadros, así que es una
+propiedad del estilo y no un adorno suelto.
+
+### Medidor y rango
+
+La energía es un medidor de **diez bloques** (vertical en escritorio, horizontal en
+teléfono) con el bloque de la mitad marcado en dorado: ahí es donde se puede activar
+el modo Leyenda, y una barra lisa no dejaba ver cuánto faltaba. El rango es un bloque
+macizo con la letra en tinta encima, no un contorno con resplandor.
 
 **Pendiente conocido:** los carriles todavía se distinguen solo por color. Para
 daltonismo hace falta darles forma o posición además del color.

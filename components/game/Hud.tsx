@@ -35,3 +35,62 @@ export function MultRing({ combo, mult, boosting, color }: { combo: number; mult
     </svg>
   );
 }
+
+/**
+ * Medidor de energía por segmentos. Una barra lisa no dice cuánto falta para
+ * la mitad, que es el punto en que se puede activar el modo Leyenda; diez
+ * bloques sí, y el que está a medio llenar se ve avanzar.
+ */
+export function EnergyMeter({ value, boosting, vertical = false, segments = 10 }: {
+  value: number; boosting: boolean; vertical?: boolean; segments?: number;
+}) {
+  const listo = value >= 0.5;
+  const col = boosting ? '#ffc53d' : listo ? '#ffc53d' : '#ff3d8b';
+  const llenos = value * segments;
+  const bloques = Array.from({ length: segments }, (_, i) => {
+    const k = Math.max(0, Math.min(1, llenos - i));
+    const mitad = i === Math.floor(segments / 2);
+    return (
+      <span key={i} style={{
+        position: 'relative', flex: 1, minWidth: 0, minHeight: 0,
+        background: 'rgba(255,255,255,0.06)',
+        // El bloque a medio llenar avanza, no salta
+        backgroundImage: k > 0
+          ? `linear-gradient(${vertical ? 'to top' : 'to right'}, ${col} ${k * 100}%, transparent ${k * 100}%)`
+          : undefined,
+        boxShadow: mitad ? `inset 0 0 0 1px rgba(255,197,61,.55)` : undefined
+      }} />
+    );
+  });
+  return (
+    <span
+      aria-hidden="true"
+      className={listo && !boosting ? 'energy-ready' : undefined}
+      style={{
+        display: 'flex', flexDirection: vertical ? 'column-reverse' : 'row', gap: 2,
+        width: '100%', height: '100%', padding: 2,
+        border: `1px solid ${listo ? 'var(--gold)' : 'var(--line-2)'}`,
+        background: 'rgba(11,11,12,0.92)'
+      }}
+    >
+      {bloques}
+    </span>
+  );
+}
+
+/** El rango, pintado grande: es lo primero que uno mira al terminar un tramo. */
+export function RankBadge({ rank, color, size = 44 }: { rank: string; color: string; size?: number }) {
+  return (
+    <span
+      className="disp"
+      aria-label={`Rango ${rank}`}
+      style={{
+        width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.62, lineHeight: 1, color: '#0b0b0c', background: color,
+        textShadow: 'none', flexShrink: 0
+      }}
+    >
+      {rank}
+    </span>
+  );
+}
