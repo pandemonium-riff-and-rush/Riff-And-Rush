@@ -9,7 +9,7 @@ import { drawHighway, HH, HIT, HW, laneX } from '@/lib/game/render';
 import { Fx } from '@/lib/game/fx';
 import { Sfx } from '@/lib/game/sfx';
 import { ExtraInputs } from '@/lib/game/input';
-import { getSettings } from '@/lib/data/store';
+import { DEFAULT_SETTINGS, getSettings } from '@/lib/data/store';
 import { LANE_COLORS } from '@/lib/chart/types';
 
 const REPEATS = 24;
@@ -23,7 +23,9 @@ interface Hud { score: number; combo: number; acc: number; clean: number; ghosts
  * sirve para sentir cada técnica en bucle antes de decidir si entra a los charts.
  */
 export default function Laboratorio() {
-  const [settings] = useState(() => getSettings());
+  // Los ajustes son del navegador: leerlos al primer render descuadra la hidratación.
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  useEffect(() => { setSettings(getSettings()); }, []);
   const [drillId, setDrillId] = useState<string>('legato');
   const [bpm, setBpm] = useState(96);
   const [speed, setSpeed] = useState(1.6);

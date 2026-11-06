@@ -8,7 +8,7 @@ import { DIFFICULTIES, LANE_COLORS, formatTime, lastNoteEnd, playEnd } from '@/l
 import { parseChartText } from '@/lib/chart/parseChart';
 import { parseMidiBuffer } from '@/lib/chart/parseMidi';
 import { fillDifficulties } from '@/lib/chart/reduce';
-import { deleteLocalChart, getChart, getLocalCharts, getSettings, saveLocalChart } from '@/lib/data/store';
+import { DEFAULT_SETTINGS, deleteLocalChart, getChart, getLocalCharts, getSettings, saveLocalChart } from '@/lib/data/store';
 import { parseVideoTitle, parseYouTubeId } from '@/lib/youtube';
 import OffsetControl from '@/components/OffsetControl';
 import { loadYouTubeApi } from '@/lib/game/clock';
@@ -91,7 +91,13 @@ function Editor() {
   const tlRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const miniRef = useRef<HTMLCanvasElement | null>(null);
-  const settings = useMemo(() => getSettings(), []);
+  /**
+   * Los ajustes viven en el navegador, así que en el servidor no existen. Si se
+   * leyeran al primer render, el servidor pintaría las teclas por defecto y el
+   * navegador las del jugador: eso es el aviso de hidratación. Se leen al montar.
+   */
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  useEffect(() => { setSettings(getSettings()); }, []);
   const keys = settings.keys;
 
   const chartRef = useRef(chart);
