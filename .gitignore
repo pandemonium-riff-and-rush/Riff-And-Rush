@@ -9,5 +9,5 @@ next-env.d.ts
 .vercel
 coverage
 .env
-rr-src.tar.gz
+*.tar.gz
 supabase/.temp
